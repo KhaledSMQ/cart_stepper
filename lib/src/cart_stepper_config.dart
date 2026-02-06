@@ -129,14 +129,14 @@ class CartStepperLoadingConfig {
 
   @override
   int get hashCode => Object.hash(
-        type,
-        customIndicator,
-        showDelay,
-        minimumDuration,
-        disableButtonsDuringLoading,
-        color,
-        sizeMultiplier,
-      );
+    type,
+    customIndicator,
+    showDelay,
+    minimumDuration,
+    disableButtonsDuringLoading,
+    color,
+    sizeMultiplier,
+  );
 }
 
 /// Visual styling configuration for [CartStepper].
@@ -201,10 +201,13 @@ class CartStepperStyle {
   /// When null, uses a stadium shape (fully rounded ends).
   final BorderRadiusGeometry? borderRadius;
 
-  /// Custom text style for quantity display.
+  /// Custom text style for query display.
   ///
   /// When provided, overrides [fontWeight] and the size's default font size.
   final TextStyle? textStyle;
+
+  /// Font family for the displayed text.
+  final String? fontFamily;
 
   /// Creates a visual style configuration.
   const CartStepperStyle({
@@ -218,6 +221,7 @@ class CartStepperStyle {
     this.fontWeight = FontWeight.w600,
     this.borderRadius,
     this.textStyle,
+    this.fontFamily,
   });
 
   /// Default orange theme matching common e-commerce designs.
@@ -279,6 +283,7 @@ class CartStepperStyle {
     FontWeight? fontWeight,
     BorderRadiusGeometry? borderRadius,
     TextStyle? textStyle,
+    String? fontFamily,
   }) {
     return CartStepperStyle(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -291,6 +296,7 @@ class CartStepperStyle {
       fontWeight: fontWeight ?? this.fontWeight,
       borderRadius: borderRadius ?? this.borderRadius,
       textStyle: textStyle ?? this.textStyle,
+      fontFamily: fontFamily ?? this.fontFamily,
     );
   }
 
@@ -307,22 +313,24 @@ class CartStepperStyle {
         other.iconScale == iconScale &&
         other.fontWeight == fontWeight &&
         other.borderRadius == borderRadius &&
-        other.textStyle == textStyle;
+        other.textStyle == textStyle &&
+        other.fontFamily == fontFamily;
   }
 
   @override
   int get hashCode => Object.hash(
-        backgroundColor,
-        foregroundColor,
-        borderColor,
-        borderWidth,
-        elevation,
-        shadowColor,
-        iconScale,
-        fontWeight,
-        borderRadius,
-        textStyle,
-      );
+    backgroundColor,
+    foregroundColor,
+    borderColor,
+    borderWidth,
+    elevation,
+    shadowColor,
+    iconScale,
+    fontWeight,
+    borderRadius,
+    textStyle,
+    fontFamily,
+  );
 }
 
 /// Animation configuration for [CartStepper].
@@ -397,13 +405,13 @@ class CartStepperAnimation {
 
   @override
   int get hashCode => Object.hash(
-        expandDuration,
-        countChangeDuration,
-        expandCurve,
-        collapseCurve,
-        countChangeCurve,
-        enableHaptics,
-      );
+    expandDuration,
+    countChangeDuration,
+    expandCurve,
+    collapseCurve,
+    countChangeCurve,
+    enableHaptics,
+  );
 }
 
 /// Configuration for the "Add to Cart" button appearance.
@@ -444,6 +452,43 @@ class AddToCartButtonConfig {
   /// When null, uses the stepper's default border radius.
   final BorderRadiusGeometry? borderRadius;
 
+  // Auto-sizing parameters
+
+  /// Extra width constant for icon-only button (added to collapsed size).
+  ///
+  /// Defaults to 16.0.
+  final double iconOnlyExtraWidth;
+
+  /// Estimated width per character for text width calculation.
+  ///
+  /// Defaults to 8.0.
+  final double charWidthEstimate;
+
+  /// Extra width constant for text-only button.
+  ///
+  /// Defaults to 24.0.
+  final double textOnlyExtraWidth;
+
+  /// Extra width constant for text + icon button.
+  ///
+  /// Defaults to 48.0.
+  final double textIconExtraWidth;
+
+  /// Minimum width constraint for text-only button.
+  ///
+  /// Defaults to 60.0.
+  final double minTextButtonWidth;
+
+  /// Minimum width constraint for text + icon button.
+  ///
+  /// Defaults to 80.0.
+  final double minTextIconButtonWidth;
+
+  /// Maximum width constraint for auto-calculated width.
+  ///
+  /// Defaults to 200.0.
+  final double maxAutoWidth;
+
   /// Creates a button configuration.
   const AddToCartButtonConfig({
     this.style = AddToCartButtonStyle.circleIcon,
@@ -454,6 +499,13 @@ class AddToCartButtonConfig {
     this.buttonWidth,
     this.padding,
     this.borderRadius,
+    this.iconOnlyExtraWidth = 16.0,
+    this.charWidthEstimate = 8.0,
+    this.textOnlyExtraWidth = 24.0,
+    this.textIconExtraWidth = 48.0,
+    this.minTextButtonWidth = 60.0,
+    this.minTextIconButtonWidth = 80.0,
+    this.maxAutoWidth = 200.0,
   });
 
   /// Default circle icon configuration.
@@ -495,6 +547,13 @@ class AddToCartButtonConfig {
     double? buttonWidth,
     EdgeInsetsGeometry? padding,
     BorderRadiusGeometry? borderRadius,
+    double? iconOnlyExtraWidth,
+    double? charWidthEstimate,
+    double? textOnlyExtraWidth,
+    double? textIconExtraWidth,
+    double? minTextButtonWidth,
+    double? minTextIconButtonWidth,
+    double? maxAutoWidth,
   }) {
     return AddToCartButtonConfig(
       style: style ?? this.style,
@@ -505,6 +564,14 @@ class AddToCartButtonConfig {
       buttonWidth: buttonWidth ?? this.buttonWidth,
       padding: padding ?? this.padding,
       borderRadius: borderRadius ?? this.borderRadius,
+      iconOnlyExtraWidth: iconOnlyExtraWidth ?? this.iconOnlyExtraWidth,
+      charWidthEstimate: charWidthEstimate ?? this.charWidthEstimate,
+      textOnlyExtraWidth: textOnlyExtraWidth ?? this.textOnlyExtraWidth,
+      textIconExtraWidth: textIconExtraWidth ?? this.textIconExtraWidth,
+      minTextButtonWidth: minTextButtonWidth ?? this.minTextButtonWidth,
+      minTextIconButtonWidth:
+          minTextIconButtonWidth ?? this.minTextIconButtonWidth,
+      maxAutoWidth: maxAutoWidth ?? this.maxAutoWidth,
     );
   }
 
@@ -519,18 +586,32 @@ class AddToCartButtonConfig {
         other.iconLeading == iconLeading &&
         other.buttonWidth == buttonWidth &&
         other.padding == padding &&
-        other.borderRadius == borderRadius;
+        other.borderRadius == borderRadius &&
+        other.iconOnlyExtraWidth == iconOnlyExtraWidth &&
+        other.charWidthEstimate == charWidthEstimate &&
+        other.textOnlyExtraWidth == textOnlyExtraWidth &&
+        other.textIconExtraWidth == textIconExtraWidth &&
+        other.minTextButtonWidth == minTextButtonWidth &&
+        other.minTextIconButtonWidth == minTextIconButtonWidth &&
+        other.maxAutoWidth == maxAutoWidth;
   }
 
   @override
   int get hashCode => Object.hash(
-        style,
-        buttonText,
-        icon,
-        showIcon,
-        iconLeading,
-        buttonWidth,
-        padding,
-        borderRadius,
-      );
+    style,
+    buttonText,
+    icon,
+    showIcon,
+    iconLeading,
+    buttonWidth,
+    padding,
+    borderRadius,
+    iconOnlyExtraWidth,
+    charWidthEstimate,
+    textOnlyExtraWidth,
+    textIconExtraWidth,
+    minTextButtonWidth,
+    minTextIconButtonWidth,
+    maxAutoWidth,
+  );
 }
