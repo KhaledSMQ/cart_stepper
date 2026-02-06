@@ -56,7 +56,7 @@ class CartStepperOperationError extends CartStepperError {
   final CartStepperOperationType operationType;
 
   /// The quantity that was being set when the error occurred.
-  final int? targetQuantity;
+  final num? targetQuantity;
 
   CartStepperOperationError({
     required this.operationType,
@@ -71,7 +71,7 @@ class CartStepperOperationError extends CartStepperError {
 
   static String _buildOperationMessage(
     CartStepperOperationType operationType,
-    int? targetQuantity,
+    num? targetQuantity,
   ) {
     final base = 'Operation ${operationType.name} failed';
     return targetQuantity != null ? '$base (target: $targetQuantity)' : base;
@@ -169,6 +169,7 @@ enum CancellationReason {
   validationFailed('validation failed');
 
   final String description;
+
   const CancellationReason(this.description);
 }
 
@@ -177,7 +178,7 @@ extension CartStepperErrorFactory on Object {
   /// Wraps this error in a [CartStepperOperationError].
   CartStepperOperationError asOperationError({
     required CartStepperOperationType operationType,
-    int? targetQuantity,
+    num? targetQuantity,
     StackTrace? stackTrace,
   }) {
     return CartStepperOperationError(
@@ -222,7 +223,8 @@ mixin CartStepperErrorDiagnostics on DiagnosticableTreeMixin {
     if (lastError != null) {
       properties.add(StringProperty('lastError', lastError.message));
       if (lastError.cause != null) {
-        properties.add(StringProperty('errorCause', lastError.cause.toString()));
+        properties
+            .add(StringProperty('errorCause', lastError.cause.toString()));
       }
     }
   }

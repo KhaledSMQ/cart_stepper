@@ -17,7 +17,9 @@ import 'package:flutter/material.dart';
 /// ```
 class AnimatedCounter extends StatefulWidget {
   /// The current value to display.
-  final int value;
+  ///
+  /// Supports both [int] and [double] values.
+  final num value;
 
   /// Text style for the counter.
   final TextStyle style;
@@ -31,7 +33,8 @@ class AnimatedCounter extends StatefulWidget {
   /// Optional formatter to customize how the value is displayed.
   ///
   /// If null, the value is displayed as-is using [toString].
-  final String Function(int)? formatter;
+  /// For integer values, decimal places are not shown by default.
+  final String Function(num)? formatter;
 
   /// Creates an animated counter.
   const AnimatedCounter({
@@ -57,8 +60,8 @@ class _AnimatedCounterState extends State<AnimatedCounter>
   static const _zeroOffset = AlwaysStoppedAnimation(Offset.zero);
   static const _fullOpacity = AlwaysStoppedAnimation(1.0);
 
-  int _currentValue = 0;
-  int _previousValue = 0;
+  num _currentValue = 0;
+  num _previousValue = 0;
   double _slideDirection = 1.0; // 1 for up (increase), -1 for down (decrease)
 
   // Slide animations - recreated only when direction changes
@@ -142,8 +145,14 @@ class _AnimatedCounterState extends State<AnimatedCounter>
     super.dispose();
   }
 
-  String _format(int value) =>
-      widget.formatter?.call(value) ?? value.toString();
+  String _format(num value) {
+    if (widget.formatter != null) return widget.formatter!(value);
+    // For integer values, don't show decimal places
+    if (value is int || value == value.roundToDouble()) {
+      return value.toInt().toString();
+    }
+    return value.toString();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -17,6 +17,10 @@ import 'cart_stepper_types.dart';
 ///   data: CartStepperThemeData(
 ///     style: CartStepperStyle.defaultOrange,
 ///     size: CartStepperSize.normal,
+///     longPressConfig: CartStepperLongPressConfig(enabled: true),
+///     collapseConfig: CartStepperCollapseConfig(
+///       autoCollapseDelay: Duration(seconds: 5),
+///     ),
 ///   ),
 ///   child: Column(
 ///     children: [
@@ -65,6 +69,9 @@ class CartStepperTheme extends InheritedWidget {
 
 /// Theme data for [CartStepper] widgets.
 ///
+/// Uses config objects for consistent grouping of related properties.
+/// Simple boolean flags are kept flat for convenience.
+///
 /// Use this with [CartStepperTheme] to style multiple steppers consistently.
 @immutable
 class CartStepperThemeData {
@@ -83,14 +90,26 @@ class CartStepperThemeData {
   /// Whether delete triggers onQuantityChanged instead of onRemove.
   final bool deleteViaQuantityChange;
 
-  /// Whether long-press enables rapid changes.
-  final bool enableLongPress;
+  /// Long-press behavior configuration.
+  final CartStepperLongPressConfig? longPressConfig;
 
-  /// Duration before auto-collapse after inactivity.
-  final Duration? autoCollapseDelay;
+  /// Collapse/expand behavior configuration.
+  final CartStepperCollapseConfig? collapseConfig;
+
+  /// Icon customization configuration.
+  final CartStepperIconConfig? iconConfig;
+
+  /// Manual input configuration.
+  final CartStepperManualInputConfig? manualInputConfig;
+
+  /// Async behavior configuration (debounce, throttle, optimistic updates).
+  final CartStepperAsyncBehavior? asyncBehavior;
 
   /// Loading indicator configuration.
   final CartStepperLoadingConfig? loadingConfig;
+
+  /// Add-to-cart button configuration.
+  final AddToCartButtonConfig? addToCartConfig;
 
   /// Creates theme data for cart steppers.
   const CartStepperThemeData({
@@ -99,9 +118,13 @@ class CartStepperThemeData {
     this.animation = const CartStepperAnimation(),
     this.showDeleteAtMin = true,
     this.deleteViaQuantityChange = false,
-    this.enableLongPress = true,
-    this.autoCollapseDelay,
+    this.longPressConfig,
+    this.collapseConfig,
+    this.iconConfig,
+    this.manualInputConfig,
+    this.asyncBehavior,
     this.loadingConfig,
+    this.addToCartConfig,
   });
 
   /// Creates a copy with the given fields replaced.
@@ -111,9 +134,13 @@ class CartStepperThemeData {
     CartStepperAnimation? animation,
     bool? showDeleteAtMin,
     bool? deleteViaQuantityChange,
-    bool? enableLongPress,
-    Duration? autoCollapseDelay,
+    CartStepperLongPressConfig? longPressConfig,
+    CartStepperCollapseConfig? collapseConfig,
+    CartStepperIconConfig? iconConfig,
+    CartStepperManualInputConfig? manualInputConfig,
+    CartStepperAsyncBehavior? asyncBehavior,
     CartStepperLoadingConfig? loadingConfig,
+    AddToCartButtonConfig? addToCartConfig,
   }) {
     return CartStepperThemeData(
       style: style ?? this.style,
@@ -122,9 +149,13 @@ class CartStepperThemeData {
       showDeleteAtMin: showDeleteAtMin ?? this.showDeleteAtMin,
       deleteViaQuantityChange:
           deleteViaQuantityChange ?? this.deleteViaQuantityChange,
-      enableLongPress: enableLongPress ?? this.enableLongPress,
-      autoCollapseDelay: autoCollapseDelay ?? this.autoCollapseDelay,
+      longPressConfig: longPressConfig ?? this.longPressConfig,
+      collapseConfig: collapseConfig ?? this.collapseConfig,
+      iconConfig: iconConfig ?? this.iconConfig,
+      manualInputConfig: manualInputConfig ?? this.manualInputConfig,
+      asyncBehavior: asyncBehavior ?? this.asyncBehavior,
       loadingConfig: loadingConfig ?? this.loadingConfig,
+      addToCartConfig: addToCartConfig ?? this.addToCartConfig,
     );
   }
 
@@ -137,9 +168,13 @@ class CartStepperThemeData {
         other.animation == animation &&
         other.showDeleteAtMin == showDeleteAtMin &&
         other.deleteViaQuantityChange == deleteViaQuantityChange &&
-        other.enableLongPress == enableLongPress &&
-        other.autoCollapseDelay == autoCollapseDelay &&
-        other.loadingConfig == loadingConfig;
+        other.longPressConfig == longPressConfig &&
+        other.collapseConfig == collapseConfig &&
+        other.iconConfig == iconConfig &&
+        other.manualInputConfig == manualInputConfig &&
+        other.asyncBehavior == asyncBehavior &&
+        other.loadingConfig == loadingConfig &&
+        other.addToCartConfig == addToCartConfig;
   }
 
   @override
@@ -149,9 +184,13 @@ class CartStepperThemeData {
         animation,
         showDeleteAtMin,
         deleteViaQuantityChange,
-        enableLongPress,
-        autoCollapseDelay,
+        longPressConfig,
+        collapseConfig,
+        iconConfig,
+        manualInputConfig,
+        asyncBehavior,
         loadingConfig,
+        addToCartConfig,
       );
 
   @override
@@ -164,6 +203,8 @@ class CartStepperThemeData {
 ///
 /// This widget looks up the nearest [CartStepperTheme] and applies its
 /// settings, with local overrides taking precedence.
+///
+/// The type parameter [T] defaults to [int] for backward compatibility.
 ///
 /// Example:
 /// ```dart
@@ -181,15 +222,15 @@ class CartStepperThemeData {
 /// See also:
 /// - [CartStepperTheme] for providing theme data
 /// - [CartStepper] for the underlying widget
-class ThemedCartStepper extends StatelessWidget {
+class ThemedCartStepper<T extends num> extends StatelessWidget {
   /// Current quantity value.
-  final int quantity;
+  final T quantity;
 
   /// Synchronous callback when quantity changes.
-  final QuantityChangedCallback? onQuantityChanged;
+  final QuantityChangedCallback<T>? onQuantityChanged;
 
   /// Asynchronous callback when quantity changes.
-  final AsyncQuantityChangedCallback? onQuantityChangedAsync;
+  final AsyncQuantityChangedCallback<T>? onQuantityChangedAsync;
 
   /// Callback when item should be removed.
   final VoidCallback? onRemove;
@@ -204,13 +245,13 @@ class ThemedCartStepper extends StatelessWidget {
   final Future<void> Function()? onAddAsync;
 
   /// Minimum allowed quantity.
-  final int minQuantity;
+  final num minQuantity;
 
   /// Maximum allowed quantity.
-  final int maxQuantity;
+  final num maxQuantity;
 
   /// Step value for increment/decrement.
-  final int step;
+  final num step;
 
   /// Size variant (overrides theme).
   final CartStepperSize? size;
@@ -224,6 +265,24 @@ class ThemedCartStepper extends StatelessWidget {
   /// Loading configuration (overrides theme).
   final CartStepperLoadingConfig? loadingConfig;
 
+  /// Long-press configuration (overrides theme).
+  final CartStepperLongPressConfig? longPressConfig;
+
+  /// Collapse/expand configuration (overrides theme).
+  final CartStepperCollapseConfig? collapseConfig;
+
+  /// Icon configuration (overrides theme).
+  final CartStepperIconConfig? iconConfig;
+
+  /// Manual input configuration (overrides theme).
+  final CartStepperManualInputConfig? manualInputConfig;
+
+  /// Async behavior configuration (overrides theme).
+  final CartStepperAsyncBehavior? asyncBehavior;
+
+  /// Add-to-cart button configuration (overrides theme).
+  final AddToCartButtonConfig? addToCartConfig;
+
   /// Whether the stepper is enabled.
   final bool enabled;
 
@@ -233,29 +292,14 @@ class ThemedCartStepper extends StatelessWidget {
   /// Whether delete triggers onQuantityChanged (overrides theme).
   final bool? deleteViaQuantityChange;
 
-  /// Whether long-press enables rapid changes (overrides theme).
-  final bool? enableLongPress;
-
   /// Semantic label for accessibility.
   final String? semanticLabel;
-
-  /// Auto-collapse delay (overrides theme).
-  final Duration? autoCollapseDelay;
-
-  /// Force initial expanded state.
-  final bool? initiallyExpanded;
 
   /// Error callback for async operations.
   final AsyncErrorCallback? onError;
 
-  /// Initial delay before long-press repeat starts.
-  final Duration? initialLongPressDelay;
-
   /// Custom quantity formatter.
-  final String Function(int quantity)? quantityFormatter;
-
-  /// Configuration for the add button.
-  final AddToCartButtonConfig? addToCartConfig;
+  final String Function(num quantity)? quantityFormatter;
 
   /// Creates a themed cart stepper.
   const ThemedCartStepper({
@@ -267,74 +311,124 @@ class ThemedCartStepper extends StatelessWidget {
     this.onRemoveAsync,
     this.onAdd,
     this.onAddAsync,
-    this.minQuantity = 0,
+    this.minQuantity = 1,
     this.maxQuantity = 99,
     this.step = 1,
     this.size,
     this.style,
     this.animation,
     this.loadingConfig,
+    this.longPressConfig,
+    this.collapseConfig,
+    this.iconConfig,
+    this.manualInputConfig,
+    this.asyncBehavior,
+    this.addToCartConfig,
     this.enabled = true,
     this.showDeleteAtMin,
     this.deleteViaQuantityChange,
-    this.enableLongPress,
     this.semanticLabel,
-    this.autoCollapseDelay,
-    this.initiallyExpanded,
     this.onError,
-    this.initialLongPressDelay,
     this.quantityFormatter,
-    this.addToCartConfig,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = CartStepperTheme.maybeOf(context);
 
-    return CartStepper(
+    final resolvedSize = size ?? theme?.size ?? CartStepperSize.normal;
+    final resolvedStyle =
+        style ?? theme?.style ?? CartStepperStyle.defaultOrange;
+    final resolvedAnimation =
+        animation ?? theme?.animation ?? const CartStepperAnimation();
+    final resolvedShowDeleteAtMin =
+        showDeleteAtMin ?? theme?.showDeleteAtMin ?? true;
+    final resolvedLongPress = longPressConfig ??
+        theme?.longPressConfig ??
+        const CartStepperLongPressConfig();
+    final resolvedCollapse = collapseConfig ??
+        theme?.collapseConfig ??
+        const CartStepperCollapseConfig();
+    final resolvedAddToCart = addToCartConfig ??
+        theme?.addToCartConfig ??
+        const AddToCartButtonConfig();
+
+    // Use AsyncCartStepper when async callbacks are provided
+    final hasAsync = onQuantityChangedAsync != null ||
+        onRemoveAsync != null ||
+        onAddAsync != null;
+
+    if (hasAsync) {
+      return AsyncCartStepper<T>(
+        quantity: quantity,
+        onQuantityChangedAsync: onQuantityChangedAsync,
+        onRemoveAsync: onRemoveAsync,
+        onAddAsync: onAddAsync,
+        onQuantityChanged: onQuantityChanged,
+        onRemove: onRemove,
+        onAdd: onAdd,
+        minQuantity: minQuantity,
+        maxQuantity: maxQuantity,
+        step: step,
+        size: resolvedSize,
+        style: resolvedStyle,
+        animation: resolvedAnimation,
+        loadingConfig: loadingConfig ??
+            theme?.loadingConfig ??
+            const CartStepperLoadingConfig(),
+        enabled: enabled,
+        showDeleteAtMin: resolvedShowDeleteAtMin,
+        deleteViaQuantityChange:
+            deleteViaQuantityChange ?? theme?.deleteViaQuantityChange ?? false,
+        semanticLabel: semanticLabel,
+        collapseConfig: resolvedCollapse,
+        longPressConfig: resolvedLongPress,
+        iconConfig: iconConfig ?? theme?.iconConfig,
+        manualInputConfig: manualInputConfig ?? theme?.manualInputConfig,
+        asyncBehavior: asyncBehavior ??
+            theme?.asyncBehavior ??
+            const CartStepperAsyncBehavior(),
+        onError: onError,
+        quantityFormatter: quantityFormatter,
+        addToCartConfig: resolvedAddToCart,
+      );
+    }
+
+    // Use simple CartStepper for sync-only
+    return CartStepper<T>(
       quantity: quantity,
       onQuantityChanged: onQuantityChanged,
-      onQuantityChangedAsync: onQuantityChangedAsync,
       onRemove: onRemove,
-      onRemoveAsync: onRemoveAsync,
       onAdd: onAdd,
-      onAddAsync: onAddAsync,
       minQuantity: minQuantity,
       maxQuantity: maxQuantity,
       step: step,
-      size: size ?? theme?.size ?? CartStepperSize.normal,
-      style: style ?? theme?.style ?? CartStepperStyle.defaultOrange,
-      animation: animation ?? theme?.animation ?? const CartStepperAnimation(),
-      loadingConfig: loadingConfig ??
-          theme?.loadingConfig ??
-          const CartStepperLoadingConfig(),
+      size: resolvedSize,
+      style: resolvedStyle,
+      animation: resolvedAnimation,
+      addToCartConfig: resolvedAddToCart,
       enabled: enabled,
-      showDeleteAtMin: showDeleteAtMin ?? theme?.showDeleteAtMin ?? true,
-      deleteViaQuantityChange:
-          deleteViaQuantityChange ?? theme?.deleteViaQuantityChange ?? false,
-      enableLongPress: enableLongPress ?? theme?.enableLongPress ?? true,
+      showDeleteAtMin: resolvedShowDeleteAtMin,
       semanticLabel: semanticLabel,
-      autoCollapseDelay: autoCollapseDelay ?? theme?.autoCollapseDelay,
-      initiallyExpanded: initiallyExpanded,
-      onError: onError,
-      initialLongPressDelay:
-          initialLongPressDelay ?? const Duration(milliseconds: 400),
-      quantityFormatter: quantityFormatter,
-      addToCartConfig: addToCartConfig ?? const AddToCartButtonConfig(),
     );
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(IntProperty('quantity', quantity));
-    properties.add(FlagProperty('enabled', value: enabled, ifFalse: 'disabled'));
+    properties.add(DiagnosticsProperty<num>('quantity', quantity));
+    properties
+        .add(FlagProperty('enabled', value: enabled, ifFalse: 'disabled'));
   }
 }
 
-/// A horizontal row of cart steppers for variant selection.
+/// A row or column of cart steppers for variant selection.
 ///
-/// Useful for showing multiple size/color variants with quantities.
+/// Supports sync and async quantity changes, total quantity tracking,
+/// selection modes (none, single, multiple), and automatic theme resolution.
+///
+/// The type parameter [T] is the associated data type for each item.
+/// Quantities are always [int].
 ///
 /// Example:
 /// ```dart
@@ -347,17 +441,35 @@ class ThemedCartStepper extends StatelessWidget {
 ///   onQuantityChanged: (index, qty) {
 ///     setState(() => sizes[index] = qty);
 ///   },
+///   onTotalChanged: (total) => print('Total: $total'),
+///   selectionMode: CartStepperSelectionMode.single,
 /// )
 /// ```
 class CartStepperGroup<T> extends StatelessWidget {
   /// The items to display.
   final List<CartStepperGroupItem<T>> items;
 
-  /// Callback when an item's quantity changes.
+  /// Synchronous callback when an item's quantity changes.
   final void Function(int index, int quantity)? onQuantityChanged;
+
+  /// Async callback when an item's quantity changes.
+  ///
+  /// When provided, [AsyncCartStepper] is used instead of [CartStepper].
+  final Future<void> Function(int index, int quantity)? onQuantityChangedAsync;
 
   /// Callback when an item should be removed.
   final void Function(int index)? onRemove;
+
+  /// Callback when the total quantity across all items changes.
+  ///
+  /// Fired after [onQuantityChanged] or [onQuantityChangedAsync] completes.
+  final void Function(int totalQuantity)? onTotalChanged;
+
+  /// Callback when selection changes (items with quantity > 0).
+  ///
+  /// Only relevant when [selectionMode] is not [CartStepperSelectionMode.none].
+  /// Provides the indices of all items with quantity > 0.
+  final void Function(List<int> selectedIndices)? onSelectionChanged;
 
   /// Size variant for all steppers.
   final CartStepperSize size;
@@ -368,30 +480,64 @@ class CartStepperGroup<T> extends StatelessWidget {
   /// Spacing between items.
   final double spacing;
 
-  /// Layout direction.
+  /// Layout direction of the group.
   final Axis direction;
 
   /// Maximum total quantity across all items.
   final int maxTotalQuantity;
+
+  /// Selection mode for the group.
+  ///
+  /// - [CartStepperSelectionMode.none]: Items work independently (default).
+  /// - [CartStepperSelectionMode.single]: Only one item can have quantity > 0.
+  /// - [CartStepperSelectionMode.multiple]: Multiple items can have quantity > 0.
+  final CartStepperSelectionMode selectionMode;
+
+  /// Whether to pick up styles from the nearest [CartStepperTheme].
+  ///
+  /// When true, [size] and [style] are only used as fallbacks if no theme
+  /// is found in the widget tree.
+  final bool themed;
+
+  /// Error callback for async operations.
+  final AsyncErrorCallback? onError;
 
   /// Creates a group of cart steppers.
   const CartStepperGroup({
     super.key,
     required this.items,
     this.onQuantityChanged,
+    this.onQuantityChangedAsync,
     this.onRemove,
+    this.onTotalChanged,
+    this.onSelectionChanged,
     this.size = CartStepperSize.compact,
     this.style = CartStepperStyle.defaultOrange,
     this.spacing = 8,
     this.direction = Axis.horizontal,
     this.maxTotalQuantity = 999,
+    this.selectionMode = CartStepperSelectionMode.none,
+    this.themed = false,
+    this.onError,
   });
 
   /// Total quantity across all items.
   int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
 
+  /// Indices of items with quantity > 0.
+  List<int> get selectedIndices => [
+        for (var i = 0; i < items.length; i++)
+          if (items[i].quantity > 0) i,
+      ];
+
   @override
   Widget build(BuildContext context) {
+    // Resolve theme if themed flag is set
+    final themeData = themed ? CartStepperTheme.maybeOf(context) : null;
+    final resolvedSize = themeData?.size ?? size;
+    final resolvedStyle = themeData?.style ?? style;
+    final useAsync = onQuantityChangedAsync != null;
+
     return Wrap(
       direction: direction,
       spacing: spacing,
@@ -403,7 +549,6 @@ class CartStepperGroup<T> extends StatelessWidget {
             .clamp(0, maxTotalQuantity - currentTotal + item.quantity);
 
         return Column(
-          // Use item's unique id for stable keys when items are reordered/removed
           key: ValueKey('cart_stepper_group_${item.id}'),
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -414,27 +559,108 @@ class CartStepperGroup<T> extends StatelessWidget {
                   child: Text(
                     item.label!,
                     style: TextStyle(
-                      fontSize: size == CartStepperSize.compact ? 10 : 12,
-                      // Use theme-aware color that adapts to light/dark mode
-                      color: Theme.of(context).textTheme.bodySmall?.color ?? 
-                             Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize:
+                          resolvedSize == CartStepperSize.compact ? 10 : 12,
+                      color: Theme.of(context).textTheme.bodySmall?.color ??
+                          Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6),
                     ),
                   ),
                 ),
               ),
-            CartStepper(
-              quantity: item.quantity,
-              minQuantity: item.minQuantity,
-              maxQuantity: maxForThis,
-              size: size,
-              style: style,
-              onQuantityChanged: (qty) => onQuantityChanged?.call(index, qty),
-              onRemove: () => onRemove?.call(index),
-            ),
+            if (useAsync)
+              AsyncCartStepper<int>(
+                quantity: item.quantity,
+                minQuantity: item.minQuantity,
+                maxQuantity: maxForThis,
+                step: 1,
+                size: resolvedSize,
+                style: resolvedStyle,
+                onQuantityChangedAsync: (qty) => _handleAsyncChange(index, qty),
+                onQuantityChanged: (qty) => _handleSyncChange(index, qty),
+                onRemove: () => onRemove?.call(index),
+                onError: onError,
+              )
+            else
+              CartStepper<int>(
+                quantity: item.quantity,
+                minQuantity: item.minQuantity,
+                maxQuantity: maxForThis,
+                step: 1,
+                size: resolvedSize,
+                style: resolvedStyle,
+                onQuantityChanged: (qty) => _handleSyncChange(index, qty),
+                onRemove: () => onRemove?.call(index),
+              ),
           ],
         );
       }),
     );
+  }
+
+  void _handleSyncChange(int index, int qty) {
+    // In single selection mode, reset all other items when this one increases
+    if (selectionMode == CartStepperSelectionMode.single && qty > 0) {
+      // Notify reset for all other items that had quantity > 0
+      for (var i = 0; i < items.length; i++) {
+        if (i != index && items[i].quantity > 0) {
+          onQuantityChanged?.call(i, 0);
+        }
+      }
+    }
+
+    onQuantityChanged?.call(index, qty);
+
+    // Calculate the new total after this change
+    final newTotal = totalQuantity - items[index].quantity + qty;
+    onTotalChanged?.call(newTotal);
+
+    if (selectionMode != CartStepperSelectionMode.none) {
+      final newSelected = <int>[];
+      for (var i = 0; i < items.length; i++) {
+        final itemQty = i == index ? qty : items[i].quantity;
+        // In single selection mode, other items are reset to 0
+        if (selectionMode == CartStepperSelectionMode.single && i != index) {
+          if (qty > 0) continue; // Others are reset
+          if (itemQty > 0) newSelected.add(i);
+        } else {
+          if (itemQty > 0) newSelected.add(i);
+        }
+      }
+      onSelectionChanged?.call(newSelected);
+    }
+  }
+
+  Future<void> _handleAsyncChange(int index, int qty) async {
+    // In single selection mode, reset others first
+    if (selectionMode == CartStepperSelectionMode.single && qty > 0) {
+      for (var i = 0; i < items.length; i++) {
+        if (i != index && items[i].quantity > 0) {
+          onQuantityChanged?.call(i, 0);
+        }
+      }
+    }
+
+    await onQuantityChangedAsync?.call(index, qty);
+
+    final newTotal = totalQuantity - items[index].quantity + qty;
+    onTotalChanged?.call(newTotal);
+
+    if (selectionMode != CartStepperSelectionMode.none) {
+      final newSelected = <int>[];
+      for (var i = 0; i < items.length; i++) {
+        final itemQty = i == index ? qty : items[i].quantity;
+        if (selectionMode == CartStepperSelectionMode.single && i != index) {
+          if (qty > 0) continue;
+          if (itemQty > 0) newSelected.add(i);
+        } else {
+          if (itemQty > 0) newSelected.add(i);
+        }
+      }
+      onSelectionChanged?.call(newSelected);
+    }
   }
 
   @override
@@ -443,6 +669,9 @@ class CartStepperGroup<T> extends StatelessWidget {
     properties.add(IntProperty('itemCount', items.length));
     properties.add(IntProperty('totalQuantity', totalQuantity));
     properties.add(IntProperty('maxTotalQuantity', maxTotalQuantity));
+    properties.add(
+        EnumProperty<CartStepperSelectionMode>('selectionMode', selectionMode));
+    properties.add(FlagProperty('themed', value: themed, ifTrue: 'themed'));
   }
 }
 
@@ -478,7 +707,7 @@ class CartStepperGroupItem<T> {
   const CartStepperGroupItem({
     required this.id,
     required this.quantity,
-    this.minQuantity = 0,
+    this.minQuantity = 1,
     this.maxQuantity = 99,
     this.label,
     this.data,
@@ -516,7 +745,8 @@ class CartStepperGroupItem<T> {
   }
 
   @override
-  int get hashCode => Object.hash(id, quantity, minQuantity, maxQuantity, label, data);
+  int get hashCode =>
+      Object.hash(id, quantity, minQuantity, maxQuantity, label, data);
 
   @override
   String toString() {
@@ -527,6 +757,7 @@ class CartStepperGroupItem<T> {
 /// Vertical list variant for product cards.
 ///
 /// Combines product info with cart stepper in a card layout.
+/// The type parameter [T] controls the quantity type (defaults to [int]).
 ///
 /// Example:
 /// ```dart
@@ -540,7 +771,7 @@ class CartStepperGroupItem<T> {
 ///   onRemove: () => removeFromCart(product.id),
 /// )
 /// ```
-class CartProductTile extends StatelessWidget {
+class CartProductTile<T extends num> extends StatelessWidget {
   /// Leading widget (typically an image).
   final Widget? leading;
 
@@ -554,10 +785,10 @@ class CartProductTile extends StatelessWidget {
   final String? price;
 
   /// Current quantity in cart.
-  final int quantity;
+  final T quantity;
 
   /// Callback when quantity changes.
-  final QuantityChangedCallback? onQuantityChanged;
+  final QuantityChangedCallback<T>? onQuantityChanged;
 
   /// Callback when item should be removed.
   final VoidCallback? onRemove;
@@ -566,10 +797,13 @@ class CartProductTile extends StatelessWidget {
   final VoidCallback? onTap;
 
   /// Minimum allowed quantity.
-  final int minQuantity;
+  final num minQuantity;
 
   /// Maximum allowed quantity.
-  final int maxQuantity;
+  final num maxQuantity;
+
+  /// Step value for increment/decrement.
+  final num step;
 
   /// Size variant for the stepper.
   final CartStepperSize stepperSize;
@@ -599,6 +833,7 @@ class CartProductTile extends StatelessWidget {
     this.onTap,
     this.minQuantity = 1,
     this.maxQuantity = 99,
+    this.step = 1,
     this.stepperSize = CartStepperSize.compact,
     this.stepperStyle = CartStepperStyle.defaultOrange,
     this.padding = const EdgeInsets.all(12),
@@ -644,9 +879,9 @@ class CartProductTile extends StatelessWidget {
                       Text(
                         subtitle!,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          // Use theme-aware color that adapts to light/dark mode
-                          color: theme.textTheme.bodySmall?.color ?? 
-                                 theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.textTheme.bodySmall?.color ??
+                              theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.6),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -666,10 +901,11 @@ class CartProductTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              CartStepper(
+              CartStepper<T>(
                 quantity: quantity,
                 minQuantity: minQuantity,
                 maxQuantity: maxQuantity,
+                step: step,
                 size: stepperSize,
                 style: stepperStyle,
                 onQuantityChanged: onQuantityChanged,
@@ -686,7 +922,7 @@ class CartProductTile extends StatelessWidget {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(StringProperty('title', title));
-    properties.add(IntProperty('quantity', quantity));
+    properties.add(DiagnosticsProperty<num>('quantity', quantity));
     properties.add(StringProperty('price', price));
   }
 }

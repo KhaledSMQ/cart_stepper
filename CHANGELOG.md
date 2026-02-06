@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.0.0
+
+### Breaking Changes
+
+- **Split `CartStepper` into two widgets:**
+  - **`CartStepper<T>`** - Simple, ~20 parameters, synchronous only, supports generic `num` types
+  - **`AsyncCartStepper<T>`** - Full-featured, ~35 parameters (organized into config objects), supports async operations, undo, streams, and more
+- **Flat parameters reorganized into config objects** for better API clarity:
+  - `CartStepperAsyncBehavior` - async settings (optimistic updates, debounce, throttle)
+  - `CartStepperLongPressConfig` - long press behavior
+  - `CartStepperManualInputConfig` - manual input settings
+  - `CartStepperCollapseConfig` - auto-collapse behavior
+  - `CartStepperIconConfig` - icon customization
+- **`separateIcon` renamed to `collapsedBadgeIcon`** (via `CartStepperIconConfig`)
+- **`QuantityFormatters` now accept `num` instead of `int`**
+- **`ThemedCartStepper` is now generic** (`ThemedCartStepper<T extends num>`)
+- **`CartStepperThemeData` uses config objects** instead of flat parameters
+
+### New Features
+
+- **Generic type support** - `CartStepper<double>(quantity: 1.5, ...)` for decimal quantities
+- **Detailed quantity changed callback** - `onDetailedQuantityChanged: (newQty, oldQty, type) {}`
+- **RTL / directionality support** - `textDirection: TextDirection.rtl`
+- **Vertical layout** - `direction: CartStepperDirection.vertical`
+- **Expand/collapse callbacks** - `onExpanded` / `onCollapsed`
+- **Controller integration** - `controller: myController` for external state management
+- **Reactive streams** - `quantityStream: myStream` for stream-based updates
+- **Async validator** - `asyncValidator: (current, next) async => ...`
+- **Expanded builder** - `expandedBuilder: (ctx, qty, inc, dec, loading) => ...`
+- **Transition builder** - `animation: CartStepperAnimation(transitionBuilder: ...)`
+- **Undo after delete** - `undoConfig: CartStepperUndoConfig(...)` for undo support
+- **Group total callback** - `onTotalChanged: (total) {}` for `CartStepperGroup`
+- **Group async support** - `onQuantityChangedAsync: (index, qty) async {}` for groups
+- **Group selection mode** - `CartStepperSelectionMode.single`
+- **Config object presets** - `CartStepperLongPressConfig.fast`, `CartStepperAsyncBehavior.optimistic`, etc.
+
+### Improvements
+
+- Refactored internal architecture with modular builder/facade/operations pattern
+- Improved code organization and maintainability
+- Enhanced analysis options for stricter linting
+- Expanded test coverage
+- Comprehensive example app with all feature demonstrations
+- Added migration guide (`MIGRATION.md`)
+
 ## 1.0.0
 
 Initial release of Advance Cart Stepper.

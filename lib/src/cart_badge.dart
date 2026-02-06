@@ -14,7 +14,7 @@ import 'package:flutter/material.dart';
 /// ```
 class CartBadge extends StatelessWidget {
   /// The count to display in the badge.
-  final int count;
+  final num count;
 
   /// The widget to attach the badge to.
   final Widget child;
@@ -154,14 +154,15 @@ class CartBadge extends StatelessWidget {
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(IntProperty('count', count));
-    properties.add(FlagProperty('showZero', value: showZero, ifTrue: 'showZero'));
+    properties.add(DiagnosticsProperty<num>('count', count));
+    properties
+        .add(FlagProperty('showZero', value: showZero, ifTrue: 'showZero'));
     properties.add(IntProperty('maxCount', maxCount));
   }
 }
 
 class _AnimatedBadge extends StatelessWidget {
-  final int count;
+  final num count;
   final String displayText;
   final Color badgeColor;
   final Color textColor;

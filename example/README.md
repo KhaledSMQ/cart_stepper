@@ -17,6 +17,6 @@ The example app includes 6 tabs:
 
 ```bash
 cd example
-flutter create .
+flutter create --platforms=android .   # or ios, web, macos, etc.
 flutter run
 ```

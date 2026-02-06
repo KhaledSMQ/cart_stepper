@@ -128,3 +128,28 @@ enum AddToCartButtonStyle {
   /// Normal rectangular button with text and optional icon.
   button,
 }
+
+/// Layout direction for the stepper controls.
+///
+/// Controls whether the `[- qty +]` layout is horizontal or vertical.
+enum CartStepperDirection {
+  /// Horizontal layout: `[- qty +]` (default).
+  horizontal,
+
+  /// Vertical layout with increment on top, decrement on bottom.
+  vertical,
+}
+
+/// Selection mode for [CartStepperGroup].
+///
+/// Controls how items can be selected within a group.
+enum CartStepperSelectionMode {
+  /// No selection behavior (default). Items work independently.
+  none,
+
+  /// Only one item can have quantity > 0 at a time (radio-style).
+  single,
+
+  /// Multiple items can have quantity > 0 (checkbox-style).
+  multiple,
+}

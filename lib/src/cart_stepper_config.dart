@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'cart_stepper_enums.dart';
+import 'cart_stepper_types.dart';
 
 /// Configuration for loading state behavior and appearance.
 ///
@@ -360,6 +361,29 @@ class CartStepperAnimation {
   /// Defaults to `true`.
   final bool enableHaptics;
 
+  /// Custom transition builder for the expanded controls animation.
+  ///
+  /// When provided, replaces the default opacity tween for the expanded
+  /// controls (increment/quantity/decrement). The collapsed add button
+  /// always uses the default opacity fade and remains visible.
+  ///
+  /// The [animation] parameter goes from 0.0 (collapsed) to 1.0 (expanded).
+  /// The [child] is the expanded stepper controls.
+  ///
+  /// Example:
+  /// ```dart
+  /// CartStepperAnimation(
+  ///   transitionBuilder: (context, animation, child) {
+  ///     return ScaleTransition(scale: animation, child: child);
+  ///   },
+  /// )
+  /// ```
+  final Widget Function(
+    BuildContext context,
+    Animation<double> animation,
+    Widget child,
+  )? transitionBuilder;
+
   /// Creates an animation configuration.
   const CartStepperAnimation({
     this.expandDuration = const Duration(milliseconds: 250),
@@ -368,6 +392,7 @@ class CartStepperAnimation {
     this.collapseCurve = Curves.easeInCubic,
     this.countChangeCurve = Curves.easeInOut,
     this.enableHaptics = true,
+    this.transitionBuilder,
   });
 
   /// Fast animation preset for snappy interactions.
@@ -383,6 +408,27 @@ class CartStepperAnimation {
     expandCurve: Curves.easeOutBack,
   );
 
+  /// Creates a copy with the given fields replaced.
+  CartStepperAnimation copyWith({
+    Duration? expandDuration,
+    Duration? countChangeDuration,
+    Curve? expandCurve,
+    Curve? collapseCurve,
+    Curve? countChangeCurve,
+    bool? enableHaptics,
+    Widget Function(BuildContext, Animation<double>, Widget)? transitionBuilder,
+  }) {
+    return CartStepperAnimation(
+      expandDuration: expandDuration ?? this.expandDuration,
+      countChangeDuration: countChangeDuration ?? this.countChangeDuration,
+      expandCurve: expandCurve ?? this.expandCurve,
+      collapseCurve: collapseCurve ?? this.collapseCurve,
+      countChangeCurve: countChangeCurve ?? this.countChangeCurve,
+      enableHaptics: enableHaptics ?? this.enableHaptics,
+      transitionBuilder: transitionBuilder ?? this.transitionBuilder,
+    );
+  }
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -392,7 +438,8 @@ class CartStepperAnimation {
         other.expandCurve == expandCurve &&
         other.collapseCurve == collapseCurve &&
         other.countChangeCurve == countChangeCurve &&
-        other.enableHaptics == enableHaptics;
+        other.enableHaptics == enableHaptics &&
+        other.transitionBuilder == transitionBuilder;
   }
 
   @override
@@ -403,6 +450,7 @@ class CartStepperAnimation {
         collapseCurve,
         countChangeCurve,
         enableHaptics,
+        transitionBuilder,
       );
 }
 
@@ -533,4 +581,608 @@ class AddToCartButtonConfig {
         padding,
         borderRadius,
       );
+}
+
+/// Configuration for custom icons used in the stepper.
+///
+/// Groups all icon-related parameters. When null on [AsyncCartStepper],
+/// default Material icons are used.
+///
+/// Example:
+/// ```dart
+/// AsyncCartStepper(
+///   iconConfig: CartStepperIconConfig(
+///     incrementIcon: Icons.arrow_upward,
+///     decrementIcon: Icons.arrow_downward,
+///     deleteIcon: Icons.close,
+///   ),
+/// )
+/// ```
+@immutable
+class CartStepperIconConfig {
+  /// Custom icon for add button (collapsed state).
+  ///
+  /// Defaults to [Icons.add].
+  final IconData addIcon;
+
+  /// Custom icon for increment button.
+  ///
+  /// Defaults to [Icons.add].
+  final IconData incrementIcon;
+
+  /// Custom icon for decrement button.
+  ///
+  /// Defaults to [Icons.remove].
+  final IconData decrementIcon;
+
+  /// Custom icon for delete/remove button.
+  ///
+  /// Defaults to [Icons.delete_outline].
+  final IconData deleteIcon;
+
+  /// Icon to show when collapsed but having items (badge mode).
+  ///
+  /// Shown with a quantity badge when the stepper is collapsed and
+  /// quantity is greater than 0.
+  ///
+  /// Defaults to [Icons.shopping_cart].
+  final IconData? collapsedBadgeIcon;
+
+  /// Creates an icon configuration.
+  const CartStepperIconConfig({
+    this.addIcon = Icons.add,
+    this.incrementIcon = Icons.add,
+    this.decrementIcon = Icons.remove,
+    this.deleteIcon = Icons.delete_outline,
+    this.collapsedBadgeIcon,
+  });
+
+  /// Creates a copy of this configuration with the given fields replaced.
+  CartStepperIconConfig copyWith({
+    IconData? addIcon,
+    IconData? incrementIcon,
+    IconData? decrementIcon,
+    IconData? deleteIcon,
+    IconData? collapsedBadgeIcon,
+  }) {
+    return CartStepperIconConfig(
+      addIcon: addIcon ?? this.addIcon,
+      incrementIcon: incrementIcon ?? this.incrementIcon,
+      decrementIcon: decrementIcon ?? this.decrementIcon,
+      deleteIcon: deleteIcon ?? this.deleteIcon,
+      collapsedBadgeIcon: collapsedBadgeIcon ?? this.collapsedBadgeIcon,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CartStepperIconConfig &&
+        other.addIcon == addIcon &&
+        other.incrementIcon == incrementIcon &&
+        other.decrementIcon == decrementIcon &&
+        other.deleteIcon == deleteIcon &&
+        other.collapsedBadgeIcon == collapsedBadgeIcon;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        addIcon,
+        incrementIcon,
+        decrementIcon,
+        deleteIcon,
+        collapsedBadgeIcon,
+      );
+}
+
+/// Configuration for long-press rapid quantity changes.
+///
+/// Groups all long-press-related parameters. When null on [AsyncCartStepper],
+/// long press is enabled with default timing.
+///
+/// Example:
+/// ```dart
+/// AsyncCartStepper(
+///   longPressConfig: CartStepperLongPressConfig(
+///     enabled: true,
+///     interval: Duration(milliseconds: 50),
+///   ),
+/// )
+/// ```
+@immutable
+class CartStepperLongPressConfig {
+  /// Whether long-press enables rapid quantity changes.
+  ///
+  /// Defaults to `true`.
+  final bool enabled;
+
+  /// Interval between quantity changes during long-press.
+  ///
+  /// Defaults to 100 milliseconds.
+  final Duration interval;
+
+  /// Initial delay before long-press repeat starts.
+  ///
+  /// Prevents accidental rapid changes from brief presses.
+  /// Defaults to 400 milliseconds.
+  final Duration initialDelay;
+
+  /// Creates a long-press configuration.
+  const CartStepperLongPressConfig({
+    this.enabled = true,
+    this.interval = const Duration(milliseconds: 100),
+    this.initialDelay = const Duration(milliseconds: 400),
+  });
+
+  /// Default configuration with rapid repeating.
+  static const CartStepperLongPressConfig defaultConfig =
+      CartStepperLongPressConfig();
+
+  /// Disabled long press.
+  static const CartStepperLongPressConfig disabled =
+      CartStepperLongPressConfig(enabled: false);
+
+  /// Fast repeat for quick adjustments.
+  static const CartStepperLongPressConfig fast = CartStepperLongPressConfig(
+    interval: Duration(milliseconds: 50),
+    initialDelay: Duration(milliseconds: 200),
+  );
+
+  /// Slow repeat for careful adjustments.
+  static const CartStepperLongPressConfig slow = CartStepperLongPressConfig(
+    interval: Duration(milliseconds: 200),
+    initialDelay: Duration(milliseconds: 600),
+  );
+
+  /// Creates a copy of this configuration with the given fields replaced.
+  CartStepperLongPressConfig copyWith({
+    bool? enabled,
+    Duration? interval,
+    Duration? initialDelay,
+  }) {
+    return CartStepperLongPressConfig(
+      enabled: enabled ?? this.enabled,
+      interval: interval ?? this.interval,
+      initialDelay: initialDelay ?? this.initialDelay,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CartStepperLongPressConfig &&
+        other.enabled == enabled &&
+        other.interval == interval &&
+        other.initialDelay == initialDelay;
+  }
+
+  @override
+  int get hashCode => Object.hash(enabled, interval, initialDelay);
+}
+
+/// Configuration for manual quantity input via keyboard.
+///
+/// Groups all manual-input-related parameters. When null,
+/// manual input is disabled.
+///
+/// Example:
+/// ```dart
+/// AsyncCartStepper(
+///   manualInputConfig: CartStepperManualInputConfig(
+///     enabled: true,
+///     onSubmitted: (value) => print('Submitted: $value'),
+///   ),
+/// )
+/// ```
+@immutable
+class CartStepperManualInputConfig {
+  /// Whether tapping the quantity enables manual input via keyboard.
+  ///
+  /// Defaults to `true` (the config existing implies the feature is wanted).
+  final bool enabled;
+
+  /// Keyboard type for manual input.
+  ///
+  /// Defaults to [TextInputType.number].
+  final TextInputType keyboardType;
+
+  /// Input decoration for the manual input TextField.
+  ///
+  /// When null, uses a minimal decoration that blends with the stepper.
+  final InputDecoration? decoration;
+
+  /// Callback when manual input is submitted.
+  ///
+  /// Called with the new value after clamping to min/max.
+  final ValueChanged<num>? onSubmitted;
+
+  /// Builder for custom manual input widget.
+  ///
+  /// When provided, this builder is used instead of the default TextField.
+  final Widget Function(
+    BuildContext context,
+    num currentValue,
+    ValueChanged<String> onSubmit,
+    VoidCallback onCancel,
+  )? builder;
+
+  /// Creates a manual input configuration.
+  const CartStepperManualInputConfig({
+    this.enabled = true,
+    this.keyboardType = TextInputType.number,
+    this.decoration,
+    this.onSubmitted,
+    this.builder,
+  });
+
+  /// Creates a copy of this configuration with the given fields replaced.
+  CartStepperManualInputConfig copyWith({
+    bool? enabled,
+    TextInputType? keyboardType,
+    InputDecoration? decoration,
+    ValueChanged<num>? onSubmitted,
+    Widget Function(
+      BuildContext context,
+      num currentValue,
+      ValueChanged<String> onSubmit,
+      VoidCallback onCancel,
+    )? builder,
+  }) {
+    return CartStepperManualInputConfig(
+      enabled: enabled ?? this.enabled,
+      keyboardType: keyboardType ?? this.keyboardType,
+      decoration: decoration ?? this.decoration,
+      onSubmitted: onSubmitted ?? this.onSubmitted,
+      builder: builder ?? this.builder,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CartStepperManualInputConfig &&
+        other.enabled == enabled &&
+        other.keyboardType == keyboardType &&
+        other.decoration == decoration &&
+        other.onSubmitted == onSubmitted &&
+        other.builder == builder;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        enabled,
+        keyboardType,
+        decoration,
+        onSubmitted,
+        builder,
+      );
+}
+
+/// Configuration for collapse/badge behavior.
+///
+/// Groups all collapse-related parameters. When null on [AsyncCartStepper],
+/// autoCollapse is enabled with default behavior.
+///
+/// Example:
+/// ```dart
+/// AsyncCartStepper(
+///   collapseConfig: CartStepperCollapseConfig(
+///     autoCollapse: true,
+///     autoCollapseDelay: Duration(seconds: 3),
+///   ),
+/// )
+/// ```
+@immutable
+class CartStepperCollapseConfig {
+  /// Whether to auto-collapse when quantity reaches 0.
+  ///
+  /// Defaults to `true`.
+  final bool autoCollapse;
+
+  /// Duration after which the stepper auto-collapses if inactive.
+  ///
+  /// When null, the stepper stays expanded indefinitely.
+  final Duration? autoCollapseDelay;
+
+  /// Force initial expanded state.
+  ///
+  /// When null, auto-determines based on quantity and [autoCollapseDelay].
+  final bool? initiallyExpanded;
+
+  /// Builder for a fully custom collapsed (add-to-cart) button.
+  ///
+  /// When provided, replaces the entire default collapsed button UI.
+  final CollapsedButtonBuilder? collapsedBuilder;
+
+  /// Custom width for the collapsed button.
+  ///
+  /// When null, the width is determined by [AddToCartButtonConfig] and [CartStepperSize].
+  final double? collapsedWidth;
+
+  /// Custom height for the collapsed button.
+  ///
+  /// When null, the height matches [CartStepperSize].
+  final double? collapsedHeight;
+
+  /// Callback when the stepper finishes expanding.
+  ///
+  /// Fired when the expand animation completes (reaches fully expanded state).
+  /// Useful for analytics or coordinating adjacent UI (e.g., scrolling to make room).
+  final VoidCallback? onExpanded;
+
+  /// Callback when the stepper finishes collapsing.
+  ///
+  /// Fired when the collapse animation completes (reaches fully collapsed state).
+  /// Useful for analytics or cleanup logic.
+  final VoidCallback? onCollapsed;
+
+  /// Creates a collapse configuration.
+  const CartStepperCollapseConfig({
+    this.autoCollapse = true,
+    this.autoCollapseDelay,
+    this.initiallyExpanded,
+    this.collapsedBuilder,
+    this.collapsedWidth,
+    this.collapsedHeight,
+    this.onExpanded,
+    this.onCollapsed,
+  });
+
+  /// Default configuration.
+  static const CartStepperCollapseConfig defaultConfig =
+      CartStepperCollapseConfig();
+
+  /// Badge mode: auto-collapse after a delay, showing a badge icon.
+  static CartStepperCollapseConfig badge({
+    Duration delay = const Duration(seconds: 3),
+  }) {
+    return CartStepperCollapseConfig(
+      autoCollapse: true,
+      autoCollapseDelay: delay,
+    );
+  }
+
+  /// Creates a copy of this configuration with the given fields replaced.
+  CartStepperCollapseConfig copyWith({
+    bool? autoCollapse,
+    Duration? autoCollapseDelay,
+    bool? initiallyExpanded,
+    CollapsedButtonBuilder? collapsedBuilder,
+    double? collapsedWidth,
+    double? collapsedHeight,
+    VoidCallback? onExpanded,
+    VoidCallback? onCollapsed,
+  }) {
+    return CartStepperCollapseConfig(
+      autoCollapse: autoCollapse ?? this.autoCollapse,
+      autoCollapseDelay: autoCollapseDelay ?? this.autoCollapseDelay,
+      initiallyExpanded: initiallyExpanded ?? this.initiallyExpanded,
+      collapsedBuilder: collapsedBuilder ?? this.collapsedBuilder,
+      collapsedWidth: collapsedWidth ?? this.collapsedWidth,
+      collapsedHeight: collapsedHeight ?? this.collapsedHeight,
+      onExpanded: onExpanded ?? this.onExpanded,
+      onCollapsed: onCollapsed ?? this.onCollapsed,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CartStepperCollapseConfig &&
+        other.autoCollapse == autoCollapse &&
+        other.autoCollapseDelay == autoCollapseDelay &&
+        other.initiallyExpanded == initiallyExpanded &&
+        other.collapsedBuilder == collapsedBuilder &&
+        other.collapsedWidth == collapsedWidth &&
+        other.collapsedHeight == collapsedHeight &&
+        other.onExpanded == onExpanded &&
+        other.onCollapsed == onCollapsed;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        autoCollapse,
+        autoCollapseDelay,
+        initiallyExpanded,
+        collapsedBuilder,
+        collapsedWidth,
+        collapsedHeight,
+        onExpanded,
+        onCollapsed,
+      );
+}
+
+/// Configuration for async operation behavior.
+///
+/// Groups all async-specific behavior parameters. When null on
+/// [AsyncCartStepper], sensible defaults are used.
+///
+/// Example:
+/// ```dart
+/// AsyncCartStepper(
+///   asyncBehavior: CartStepperAsyncBehavior(
+///     optimisticUpdate: true,
+///     debounceDelay: Duration(milliseconds: 500),
+///   ),
+/// )
+/// ```
+@immutable
+class CartStepperAsyncBehavior {
+  /// Whether to update the UI optimistically before async operations complete.
+  ///
+  /// When `true`, the quantity display updates immediately and reverts
+  /// if the operation fails (controlled by [revertOnError]).
+  /// Defaults to `false`.
+  final bool optimisticUpdate;
+
+  /// Whether to revert to previous value on async error when using optimistic updates.
+  ///
+  /// Only applies when [optimisticUpdate] is `true`.
+  /// Defaults to `true`.
+  final bool revertOnError;
+
+  /// Whether long-press rapid-fire is allowed for async operations.
+  ///
+  /// When `false` (default), long-press rapid-fire is disabled when using
+  /// async callbacks to prevent queuing multiple concurrent operations.
+  final bool allowLongPressForAsync;
+
+  /// Throttle interval for rapid operations.
+  ///
+  /// Prevents rapid-fire operations from overwhelming the system.
+  /// Defaults to 80 milliseconds.
+  final Duration throttleInterval;
+
+  /// Debounce delay for async operations.
+  ///
+  /// When set, enables debounce mode: UI updates immediately (locally),
+  /// and after the user stops interacting for this duration, one API call
+  /// is made. Ideal for shopping carts.
+  ///
+  /// When null (default), async operations execute immediately.
+  final Duration? debounceDelay;
+
+  /// Creates an async behavior configuration.
+  const CartStepperAsyncBehavior({
+    this.optimisticUpdate = false,
+    this.revertOnError = true,
+    this.allowLongPressForAsync = false,
+    this.throttleInterval = const Duration(milliseconds: 80),
+    this.debounceDelay,
+  });
+
+  /// Default configuration with no optimistic updates and standard throttle.
+  static const CartStepperAsyncBehavior defaultConfig =
+      CartStepperAsyncBehavior();
+
+  /// Optimistic configuration for instant UI feedback.
+  static const CartStepperAsyncBehavior optimistic = CartStepperAsyncBehavior(
+    optimisticUpdate: true,
+    revertOnError: true,
+  );
+
+  /// Debounced configuration for batching rapid changes.
+  static CartStepperAsyncBehavior debounced({
+    Duration delay = const Duration(milliseconds: 500),
+  }) {
+    return CartStepperAsyncBehavior(
+      debounceDelay: delay,
+    );
+  }
+
+  /// Creates a copy of this configuration with the given fields replaced.
+  CartStepperAsyncBehavior copyWith({
+    bool? optimisticUpdate,
+    bool? revertOnError,
+    bool? allowLongPressForAsync,
+    Duration? throttleInterval,
+    Duration? debounceDelay,
+  }) {
+    return CartStepperAsyncBehavior(
+      optimisticUpdate: optimisticUpdate ?? this.optimisticUpdate,
+      revertOnError: revertOnError ?? this.revertOnError,
+      allowLongPressForAsync:
+          allowLongPressForAsync ?? this.allowLongPressForAsync,
+      throttleInterval: throttleInterval ?? this.throttleInterval,
+      debounceDelay: debounceDelay ?? this.debounceDelay,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CartStepperAsyncBehavior &&
+        other.optimisticUpdate == optimisticUpdate &&
+        other.revertOnError == revertOnError &&
+        other.allowLongPressForAsync == allowLongPressForAsync &&
+        other.throttleInterval == throttleInterval &&
+        other.debounceDelay == debounceDelay;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        optimisticUpdate,
+        revertOnError,
+        allowLongPressForAsync,
+        throttleInterval,
+        debounceDelay,
+      );
+}
+
+/// Configuration for undo-after-delete behavior.
+///
+/// When enabled, removing an item shows an undo prompt for a brief period.
+/// If the user taps undo, the quantity is restored. If the timer expires,
+/// the removal is finalized.
+///
+/// Example:
+/// ```dart
+/// AsyncCartStepper(
+///   undoConfig: CartStepperUndoConfig(
+///     enabled: true,
+///     duration: Duration(seconds: 3),
+///     builder: (context, undo) => TextButton(
+///       onPressed: undo,
+///       child: Text('Undo'),
+///     ),
+///   ),
+/// )
+/// ```
+@immutable
+class CartStepperUndoConfig {
+  /// Whether undo is enabled after delete.
+  ///
+  /// Defaults to `true`.
+  final bool enabled;
+
+  /// Duration to show the undo prompt.
+  ///
+  /// After this duration, the removal is finalized.
+  /// Defaults to 3 seconds.
+  final Duration duration;
+
+  /// Custom builder for the undo UI.
+  ///
+  /// When provided, this replaces the default undo overlay.
+  /// The builder receives:
+  /// - [context]: The build context
+  /// - [undo]: Callback to trigger undo (restores previous quantity)
+  ///
+  /// When null, the stepper shows a default undo indicator.
+  final Widget Function(BuildContext context, VoidCallback undo)? builder;
+
+  /// Creates an undo configuration.
+  const CartStepperUndoConfig({
+    this.enabled = true,
+    this.duration = const Duration(seconds: 3),
+    this.builder,
+  });
+
+  /// Default configuration.
+  static const CartStepperUndoConfig defaultConfig = CartStepperUndoConfig();
+
+  /// Creates a copy with the given fields replaced.
+  CartStepperUndoConfig copyWith({
+    bool? enabled,
+    Duration? duration,
+    Widget Function(BuildContext context, VoidCallback undo)? builder,
+  }) {
+    return CartStepperUndoConfig(
+      enabled: enabled ?? this.enabled,
+      duration: duration ?? this.duration,
+      builder: builder ?? this.builder,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CartStepperUndoConfig &&
+        other.enabled == enabled &&
+        other.duration == duration &&
+        other.builder == builder;
+  }
+
+  @override
+  int get hashCode => Object.hash(enabled, duration, builder);
 }

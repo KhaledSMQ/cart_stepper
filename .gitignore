@@ -31,7 +31,7 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+**/build/
 /coverage/
 
 # Symbolication related
@@ -107,3 +107,16 @@ coverage/
 
 # Pub credentials (should never be committed)
 .pub-credentials.json
+
+# Example app generated files
+example/.metadata
+example/.flutter-plugins
+example/.flutter-plugins-dependencies
+example/pubspec.lock
+example/android/
+example/ios/
+example/linux/
+example/macos/
+example/windows/
+example/web/
+example/.dart_tool/

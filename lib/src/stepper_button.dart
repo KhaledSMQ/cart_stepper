@@ -151,7 +151,8 @@ class _StepperButtonState extends State<StepperButton> {
             child: Ink(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _isHighlighted ? widget.highlightColor : Colors.transparent,
+                color:
+                    _isHighlighted ? widget.highlightColor : Colors.transparent,
               ),
               child: Center(
                 child: Icon(

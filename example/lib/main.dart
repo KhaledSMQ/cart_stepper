@@ -112,6 +112,7 @@ class _BasicsTabState extends State<_BasicsTab>
   int _addToCartQty = 0;
   int _iconOnlyQty = 0;
   int _customButtonQty = 0;
+  int _collapsedBuilderQty = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -180,8 +181,7 @@ class _BasicsTabState extends State<_BasicsTab>
               CartStepper(
                 quantity: _addButtonQty,
                 addToCartConfig: AddToCartButtonConfig.addButton,
-                onQuantityChanged: (qty) =>
-                    setState(() => _addButtonQty = qty),
+                onQuantityChanged: (qty) => setState(() => _addButtonQty = qty),
                 onRemove: () => setState(() => _addButtonQty = 0),
               ),
             ),
@@ -191,8 +191,7 @@ class _BasicsTabState extends State<_BasicsTab>
               CartStepper(
                 quantity: _addToCartQty,
                 addToCartConfig: AddToCartButtonConfig.addToCartButton,
-                onQuantityChanged: (qty) =>
-                    setState(() => _addToCartQty = qty),
+                onQuantityChanged: (qty) => setState(() => _addToCartQty = qty),
                 onRemove: () => setState(() => _addToCartQty = 0),
               ),
             ),
@@ -202,8 +201,7 @@ class _BasicsTabState extends State<_BasicsTab>
               CartStepper(
                 quantity: _iconOnlyQty,
                 addToCartConfig: AddToCartButtonConfig.iconOnlyButton,
-                onQuantityChanged: (qty) =>
-                    setState(() => _iconOnlyQty = qty),
+                onQuantityChanged: (qty) => setState(() => _iconOnlyQty = qty),
                 onRemove: () => setState(() => _iconOnlyQty = 0),
               ),
             ),
@@ -228,6 +226,74 @@ class _BasicsTabState extends State<_BasicsTab>
                 onQuantityChanged: (qty) =>
                     setState(() => _customButtonQty = qty),
                 onRemove: () => setState(() => _customButtonQty = 0),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildRow(
+              'Collapsed Builder',
+              AsyncCartStepper(
+                quantity: _collapsedBuilderQty,
+                collapseConfig: CartStepperCollapseConfig(
+                  collapsedWidth: 100,
+                  collapsedHeight: 36,
+                  collapsedBuilder: (context, qty, isLoading, onTap) {
+                    return GestureDetector(
+                      onTap: onTap,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF6B35), Color(0xFFD84315)],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.add_shopping_cart,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    qty > 0 ? 'Add ($qty)' : 'Add',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    );
+                  },
+                ),
+                onQuantityChanged: (qty) =>
+                    setState(() => _collapsedBuilderQty = qty),
+                onRemove: () => setState(() => _collapsedBuilderQty = 0),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Fully custom widget via collapsedBuilder',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
@@ -505,7 +571,7 @@ class _AsyncTabState extends State<_AsyncTab>
           [
             _buildRow(
               'ThreeBounce (default)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _asyncDefaultQty,
                 onQuantityChangedAsync: (qty) async {
                   await _simulateApiCall();
@@ -520,7 +586,7 @@ class _AsyncTabState extends State<_AsyncTab>
             const SizedBox(height: 16),
             _buildRow(
               'FadingCircle (slow)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _asyncFadingQty,
                 loadingConfig: const CartStepperLoadingConfig(
                   type: CartStepperLoadingType.fadingCircle,
@@ -546,7 +612,7 @@ class _AsyncTabState extends State<_AsyncTab>
           [
             _buildRow(
               'CircularProgressIndicator',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _builtInCircularQty,
                 loadingConfig: CartStepperLoadingConfig.builtIn,
                 onQuantityChangedAsync: (qty) async {
@@ -562,7 +628,7 @@ class _AsyncTabState extends State<_AsyncTab>
             const SizedBox(height: 16),
             _buildRow(
               'LinearProgressIndicator',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _builtInLinearQty,
                 loadingConfig: const CartStepperLoadingConfig(
                   type: CartStepperLoadingType.linear,
@@ -588,10 +654,12 @@ class _AsyncTabState extends State<_AsyncTab>
           [
             _buildRow(
               'Optimistic (instant UI)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _optimisticQty,
-                optimisticUpdate: true,
-                revertOnError: true,
+                asyncBehavior: const CartStepperAsyncBehavior(
+                  optimisticUpdate: true,
+                  revertOnError: true,
+                ),
                 loadingConfig: const CartStepperLoadingConfig(
                   type: CartStepperLoadingType.pulse,
                   sizeMultiplier: 0.6,
@@ -628,9 +696,11 @@ class _AsyncTabState extends State<_AsyncTab>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  CartStepper(
+                  AsyncCartStepper(
                     quantity: _debounceQty,
-                    debounceDelay: const Duration(milliseconds: 500),
+                    asyncBehavior: const CartStepperAsyncBehavior(
+                      debounceDelay: Duration(milliseconds: 500),
+                    ),
                     maxQuantity: 99,
                     loadingConfig: const CartStepperLoadingConfig(
                       type: CartStepperLoadingType.threeBounce,
@@ -731,8 +801,8 @@ class _AsyncTabState extends State<_AsyncTab>
                     Expanded(
                       child: Text(
                         _lastError!,
-                        style: TextStyle(
-                            color: Colors.red.shade700, fontSize: 12),
+                        style:
+                            TextStyle(color: Colors.red.shade700, fontSize: 12),
                       ),
                     ),
                     IconButton(
@@ -746,7 +816,7 @@ class _AsyncTabState extends State<_AsyncTab>
               ),
             _buildRow(
               'With onError callback',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _errorQty,
                 onQuantityChangedAsync: (qty) async {
                   await _simulateApiCall(delayMs: 500);
@@ -776,7 +846,7 @@ class _AsyncTabState extends State<_AsyncTab>
             const SizedBox(height: 20),
             _buildRow(
               'With errorBuilder (inline)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _errorBuilderQty,
                 onQuantityChangedAsync: (qty) async {
                   await _simulateApiCall(delayMs: 500);
@@ -792,8 +862,7 @@ class _AsyncTabState extends State<_AsyncTab>
                     children: [
                       Text(
                         error.message,
-                        style:
-                            const TextStyle(color: Colors.red, fontSize: 11),
+                        style: const TextStyle(color: Colors.red, fontSize: 11),
                       ),
                       const SizedBox(width: 4),
                       GestureDetector(
@@ -839,7 +908,7 @@ class _AsyncTabState extends State<_AsyncTab>
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      CartStepper(
+                      AsyncCartStepper(
                         quantity: _loadingTypeQty[type]!,
                         size: CartStepperSize.compact,
                         loadingConfig: CartStepperLoadingConfig(
@@ -922,6 +991,16 @@ class _AdvancedTabState extends State<_AdvancedTab>
   int _manualInputLargeQty = 25;
   int _customInputBuilderQty = 10;
 
+  // v2.0 new features
+  double _decimalQty = 1.5;
+  int _verticalQty = 3;
+  int _rtlQty = 2;
+  int _undoQty = 3;
+  int _detailedQty = 2;
+  String? _detailedMessage;
+  int _expandedBuilderQty = 3;
+  int _transitionQty = 0;
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -945,9 +1024,9 @@ class _AdvancedTabState extends State<_AdvancedTab>
             const SizedBox(height: 16),
             _buildRow(
               'Step: 5',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _stepQty,
-                minQuantity: 0,
+                minQuantity: 5,
                 maxQuantity: 100,
                 step: 5,
                 quantityFormatter: (q) => '$q items',
@@ -976,7 +1055,7 @@ class _AdvancedTabState extends State<_AdvancedTab>
             const SizedBox(height: 16),
             _buildRow(
               'Delete via onQuantityChanged',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _deleteViaChangeQty,
                 minQuantity: 1,
                 deleteViaQuantityChange: true,
@@ -999,11 +1078,13 @@ class _AdvancedTabState extends State<_AdvancedTab>
           [
             _buildRow(
               'Fast (100ms delay)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _fastLongPressQty,
                 maxQuantity: 999,
-                initialLongPressDelay: const Duration(milliseconds: 100),
-                longPressInterval: const Duration(milliseconds: 50),
+                longPressConfig: const CartStepperLongPressConfig(
+                  initialDelay: Duration(milliseconds: 100),
+                  interval: Duration(milliseconds: 50),
+                ),
                 onQuantityChanged: (qty) =>
                     setState(() => _fastLongPressQty = qty),
                 onRemove: () => setState(() => _fastLongPressQty = 0),
@@ -1012,11 +1093,13 @@ class _AdvancedTabState extends State<_AdvancedTab>
             const SizedBox(height: 16),
             _buildRow(
               'Slow (800ms delay)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _slowLongPressQty,
                 maxQuantity: 999,
-                initialLongPressDelay: const Duration(milliseconds: 800),
-                longPressInterval: const Duration(milliseconds: 150),
+                longPressConfig: const CartStepperLongPressConfig(
+                  initialDelay: Duration(milliseconds: 800),
+                  interval: Duration(milliseconds: 150),
+                ),
                 onQuantityChanged: (qty) =>
                     setState(() => _slowLongPressQty = qty),
                 onRemove: () => setState(() => _slowLongPressQty = 0),
@@ -1041,7 +1124,7 @@ class _AdvancedTabState extends State<_AdvancedTab>
           [
             _buildRow(
               '1,500 → "1.5k"',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _abbrev1Qty,
                 maxQuantity: 9999999,
                 step: 100,
@@ -1053,7 +1136,7 @@ class _AdvancedTabState extends State<_AdvancedTab>
             const SizedBox(height: 16),
             _buildRow(
               '12,500 → "12.5k"',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _abbrev2Qty,
                 maxQuantity: 9999999,
                 step: 500,
@@ -1065,7 +1148,7 @@ class _AdvancedTabState extends State<_AdvancedTab>
             const SizedBox(height: 16),
             _buildRow(
               '1,000,000 → "1M"',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _abbrev3Qty,
                 maxQuantity: 9999999,
                 step: 100000,
@@ -1077,7 +1160,7 @@ class _AdvancedTabState extends State<_AdvancedTab>
             const SizedBox(height: 16),
             _buildRow(
               'Max indicator (99+)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _maxIndicatorQty,
                 maxQuantity: 150,
                 quantityFormatter: QuantityFormatters.abbreviatedWithMax(99),
@@ -1126,7 +1209,7 @@ class _AdvancedTabState extends State<_AdvancedTab>
               ),
             _buildRow(
               'With callbacks (min:1, max:10)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _callbacksQty,
                 minQuantity: 1,
                 maxQuantity: 10,
@@ -1149,7 +1232,7 @@ class _AdvancedTabState extends State<_AdvancedTab>
           [
             _buildRow(
               'Only even numbers',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _validationQty,
                 step: 1,
                 maxQuantity: 20,
@@ -1177,10 +1260,14 @@ class _AdvancedTabState extends State<_AdvancedTab>
           [
             _buildRow(
               'Auto-Collapse (3s)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _autoCollapseQty,
-                autoCollapseDelay: const Duration(seconds: 3),
-                separateIcon: Icons.shopping_cart,
+                collapseConfig: const CartStepperCollapseConfig(
+                  autoCollapseDelay: Duration(seconds: 3),
+                ),
+                iconConfig: const CartStepperIconConfig(
+                  collapsedBadgeIcon: Icons.shopping_cart,
+                ),
                 onQuantityChanged: (qty) =>
                     setState(() => _autoCollapseQty = qty),
                 onRemove: () => setState(() => _autoCollapseQty = 0),
@@ -1205,9 +1292,11 @@ class _AdvancedTabState extends State<_AdvancedTab>
           [
             _buildRow(
               'initiallyExpanded: true',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _expandedTrueQty,
-                initiallyExpanded: true,
+                collapseConfig: const CartStepperCollapseConfig(
+                  initiallyExpanded: true,
+                ),
                 onQuantityChanged: (qty) =>
                     setState(() => _expandedTrueQty = qty),
                 onRemove: () => setState(() => _expandedTrueQty = 0),
@@ -1216,9 +1305,11 @@ class _AdvancedTabState extends State<_AdvancedTab>
             const SizedBox(height: 16),
             _buildRow(
               'initiallyExpanded: false',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _expandedFalseQty,
-                initiallyExpanded: false,
+                collapseConfig: const CartStepperCollapseConfig(
+                  initiallyExpanded: false,
+                ),
                 onQuantityChanged: (qty) =>
                     setState(() => _expandedFalseQty = qty),
                 onRemove: () => setState(() => _expandedFalseQty = 0),
@@ -1234,16 +1325,74 @@ class _AdvancedTabState extends State<_AdvancedTab>
           [
             _buildRow(
               'Custom increment/decrement',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _customIconsQty,
-                addIcon: Icons.add_circle,
-                incrementIcon: Icons.arrow_upward,
-                decrementIcon: Icons.arrow_downward,
-                deleteIcon: Icons.cancel,
+                iconConfig: const CartStepperIconConfig(
+                  addIcon: Icons.add_circle,
+                  incrementIcon: Icons.arrow_upward,
+                  decrementIcon: Icons.arrow_downward,
+                  deleteIcon: Icons.cancel,
+                ),
                 onQuantityChanged: (qty) =>
                     setState(() => _customIconsQty = qty),
                 onRemove: () => setState(() => _customIconsQty = 0),
               ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
+          'Decimal / Double Quantities',
+          'Generic T extends num support for non-integer quantities',
+          [
+            _buildRow(
+              'Step: 0.5 (double)',
+              AsyncCartStepper<double>(
+                quantity: _decimalQty,
+                minQuantity: 0.5,
+                maxQuantity: 10.0,
+                step: 0.5,
+                quantityFormatter: (q) => q.toStringAsFixed(1),
+                onQuantityChanged: (qty) => setState(() => _decimalQty = qty),
+                onRemove: () => setState(() => _decimalQty = 0.0),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'CartStepper<double> with step: 0.5',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
+          'Vertical Layout',
+          'CartStepperDirection.vertical for vertical stepper controls',
+          [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Column(
+                  children: [
+                    const Text('Vertical', style: TextStyle(fontSize: 12)),
+                    const SizedBox(height: 8),
+                    AsyncCartStepper(
+                      quantity: _verticalQty,
+                      direction: CartStepperDirection.vertical,
+                      maxQuantity: 20,
+                      onQuantityChanged: (qty) =>
+                          setState(() => _verticalQty = qty),
+                      onRemove: () => setState(() => _verticalQty = 0),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -1255,20 +1404,22 @@ class _AdvancedTabState extends State<_AdvancedTab>
           [
             _buildRow(
               'Tap to edit (max: 99)',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _manualInputQty,
-                enableManualInput: true,
+                manualInputConfig: CartStepperManualInputConfig(
+                  enabled: true,
+                  onSubmitted: (qty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Manually set to $qty'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
                 onQuantityChanged: (qty) =>
                     setState(() => _manualInputQty = qty),
                 onRemove: () => setState(() => _manualInputQty = 0),
-                onManualInputSubmitted: (qty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Manually set to $qty'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                },
               ),
             ),
             const SizedBox(height: 8),
@@ -1283,11 +1434,13 @@ class _AdvancedTabState extends State<_AdvancedTab>
             const SizedBox(height: 16),
             _buildRow(
               'Large size with manual input',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _manualInputLargeQty,
                 size: CartStepperSize.large,
                 maxQuantity: 999,
-                enableManualInput: true,
+                manualInputConfig: const CartStepperManualInputConfig(
+                  enabled: true,
+                ),
                 onQuantityChanged: (qty) =>
                     setState(() => _manualInputLargeQty = qty),
                 onRemove: () => setState(() => _manualInputLargeQty = 0),
@@ -1296,58 +1449,281 @@ class _AdvancedTabState extends State<_AdvancedTab>
             const SizedBox(height: 16),
             _buildRow(
               'Custom input builder',
-              CartStepper(
+              AsyncCartStepper(
                 quantity: _customInputBuilderQty,
                 maxQuantity: 50,
-                enableManualInput: true,
+                manualInputConfig: CartStepperManualInputConfig(
+                  enabled: true,
+                  builder: (context, currentValue, onSubmit, onCancel) {
+                    final controller =
+                        TextEditingController(text: currentValue.toString());
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 40,
+                            child: TextField(
+                              controller: controller,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                                border: InputBorder.none,
+                              ),
+                              autofocus: true,
+                              onSubmitted: onSubmit,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => onSubmit(controller.text),
+                            child: const Icon(Icons.check,
+                                color: Colors.white, size: 16),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
                 onQuantityChanged: (qty) =>
                     setState(() => _customInputBuilderQty = qty),
                 onRemove: () => setState(() => _customInputBuilderQty = 0),
-                manualInputBuilder: (context, currentValue, onSubmit, onCancel) {
-                  final controller = TextEditingController(text: currentValue.toString());
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 40,
-                          child: TextField(
-                            controller: controller,
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                              border: InputBorder.none,
-                            ),
-                            autofocus: true,
-                            onSubmitted: onSubmit,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => onSubmit(controller.text),
-                          child: const Icon(Icons.check, color: Colors.white, size: 16),
-                        ),
-                      ],
-                    ),
-                  );
-                },
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Custom builder with a confirm button',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
+          'RTL / Directionality',
+          'Right-to-left layout support',
+          [
+            _buildRow(
+              'LTR (default)',
+              CartStepper(
+                quantity: _rtlQty,
+                textDirection: TextDirection.ltr,
+                onQuantityChanged: (qty) => setState(() => _rtlQty = qty),
+                onRemove: () => setState(() => _rtlQty = 0),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildRow(
+              'RTL (mirrored)',
+              CartStepper(
+                quantity: _rtlQty,
+                textDirection: TextDirection.rtl,
+                onQuantityChanged: (qty) => setState(() => _rtlQty = qty),
+                onRemove: () => setState(() => _rtlQty = 0),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Notice the increment/decrement buttons are swapped in RTL',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
+          'Undo After Delete',
+          'Shows an undo prompt before finalizing removal',
+          [
+            _buildRow(
+              'Undo (3 seconds)',
+              AsyncCartStepper(
+                quantity: _undoQty,
+                undoConfig: const CartStepperUndoConfig(
+                  enabled: true,
+                  duration: Duration(seconds: 3),
+                ),
+                onQuantityChanged: (qty) => setState(() => _undoQty = qty),
+                onRemove: () => setState(() => _undoQty = 0),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Delete an item and watch the undo indicator appear',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
+          'Detailed Quantity Changed',
+          'Track how the quantity was changed',
+          [
+            if (_detailedMessage != null)
+              Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.purple.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.analytics_outlined,
+                        color: Colors.purple.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _detailedMessage!,
+                        style: TextStyle(
+                            color: Colors.purple.shade700, fontSize: 12),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () => setState(() => _detailedMessage = null),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            _buildRow(
+              'With onDetailedQuantityChanged',
+              CartStepper(
+                quantity: _detailedQty,
+                onQuantityChanged: (qty) => setState(() => _detailedQty = qty),
+                onDetailedQuantityChanged: (newQty, oldQty, changeType) {
+                  setState(() {
+                    _detailedMessage =
+                        '$oldQty → $newQty via ${changeType.name}';
+                  });
+                },
+                onRemove: () => setState(() => _detailedQty = 0),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap +/- to see the change type reported above',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
+          'Custom Expanded Builder',
+          'Replace the default stepper controls entirely',
+          [
+            _buildRow(
+              'Custom layout',
+              AsyncCartStepper(
+                quantity: _expandedBuilderQty,
+                maxQuantity: 20,
+                expandedBuilder:
+                    (context, qty, increment, decrement, isLoading) {
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD84315),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: decrement,
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.remove_circle_outline,
+                                color: Colors.white, size: 22),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            '$qty',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: increment,
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.add_circle_outline,
+                                color: Colors.white, size: 22),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                onQuantityChanged: (qty) =>
+                    setState(() => _expandedBuilderQty = qty),
+                onRemove: () => setState(() => _expandedBuilderQty = 0),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
+          'Custom Transition Builder',
+          'Change the expand/collapse animation',
+          [
+            _buildRow(
+              'Scale transition',
+              CartStepper(
+                quantity: _transitionQty,
+                animation: CartStepperAnimation(
+                  transitionBuilder: (context, animation, child) {
+                    return ScaleTransition(scale: animation, child: child);
+                  },
+                ),
+                onQuantityChanged: (qty) =>
+                    setState(() => _transitionQty = qty),
+                onRemove: () => setState(() => _transitionQty = 0),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap + to see scale transition instead of width animation',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],
@@ -1380,15 +1756,30 @@ class _ComponentsTabState extends State<_ComponentsTab>
   // Controller
   late final CartStepperController _controller;
 
+  // Product tiles
+  int _productTileQty1 = 1;
+  int _productTileQty2 = 0;
+  int _productTileQty3 = 2;
+  int _productTileQty4 = 0;
+  double _productTileWeightQty = 1.5;
+  int _productTilePizzaQty = 1;
+
   // Badge
   int _badgeCount = 5;
 
   // Group
   List<CartStepperGroupItem> _sizeVariants = [
-    const CartStepperGroupItem(quantity: 0, label: 'S'),
-    const CartStepperGroupItem(quantity: 1, label: 'M'),
-    const CartStepperGroupItem(quantity: 0, label: 'L'),
-    const CartStepperGroupItem(quantity: 2, label: 'XL'),
+    const CartStepperGroupItem(id: 's', quantity: 0, label: 'S'),
+    const CartStepperGroupItem(id: 'm', quantity: 1, label: 'M'),
+    const CartStepperGroupItem(id: 'l', quantity: 0, label: 'L'),
+    const CartStepperGroupItem(id: 'xl', quantity: 2, label: 'XL'),
+  ];
+
+  // Selection mode group
+  List<CartStepperGroupItem> _singleSelectVariants = [
+    const CartStepperGroupItem(id: 'red', quantity: 0, label: 'Red'),
+    const CartStepperGroupItem(id: 'blue', quantity: 1, label: 'Blue'),
+    const CartStepperGroupItem(id: 'green', quantity: 0, label: 'Green'),
   ];
 
   // Themed
@@ -1400,7 +1791,6 @@ class _ComponentsTabState extends State<_ComponentsTab>
     super.initState();
     _controller = CartStepperController(
       initialQuantity: 3,
-      minQuantity: 0,
       maxQuantity: 10,
       onMaxReached: () => _showMessage('Controller: Max reached!'),
       onMinReached: () => _showMessage('Controller: Min reached!'),
@@ -1493,6 +1883,198 @@ class _ComponentsTabState extends State<_ComponentsTab>
         const SizedBox(height: 24),
         _buildSection(
           context,
+          'CartProductTile',
+          'Ready-to-use product cards with integrated stepper',
+          [
+            CartProductTile(
+              leading: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.headphones,
+                    color: Colors.orange.shade700, size: 28),
+              ),
+              title: 'Wireless Headphones',
+              subtitle: 'Noise cancelling, 30h battery',
+              price: '\$79.99',
+              quantity: _productTileQty1,
+              onQuantityChanged: (qty) =>
+                  setState(() => _productTileQty1 = qty),
+              onRemove: () => setState(() => _productTileQty1 = 0),
+            ),
+            const SizedBox(height: 12),
+            CartProductTile(
+              leading: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child:
+                    Icon(Icons.keyboard, color: Colors.blue.shade700, size: 28),
+              ),
+              title: 'Mechanical Keyboard',
+              subtitle: 'Cherry MX Blue, RGB Backlit',
+              price: '\$129.99',
+              quantity: _productTileQty2,
+              stepperStyle: CartStepperStyle.dark,
+              onQuantityChanged: (qty) =>
+                  setState(() => _productTileQty2 = qty),
+              onRemove: () => setState(() => _productTileQty2 = 0),
+            ),
+            const SizedBox(height: 12),
+            CartProductTile(
+              leading: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child:
+                    Icon(Icons.mouse, color: Colors.green.shade700, size: 28),
+              ),
+              title: 'Ergonomic Mouse',
+              subtitle: '4000 DPI, Wireless',
+              price: '\$49.99',
+              quantity: _productTileQty3,
+              stepperStyle: const CartStepperStyle(
+                backgroundColor: Color(0xFF2E7D32),
+                foregroundColor: Colors.white,
+                borderColor: Color(0xFF2E7D32),
+              ),
+              backgroundColor: Colors.green.shade50,
+              borderRadius: 20,
+              onQuantityChanged: (qty) =>
+                  setState(() => _productTileQty3 = qty),
+              onRemove: () => setState(() => _productTileQty3 = 0),
+            ),
+            const SizedBox(height: 12),
+            CartProductTile(
+              leading: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.monitor,
+                    color: Colors.purple.shade700, size: 28),
+              ),
+              title: 'Ultra-wide Monitor',
+              subtitle: '34", 144Hz, HDR',
+              price: '\$499.99',
+              quantity: _productTileQty4,
+              stepperSize: CartStepperSize.normal,
+              maxQuantity: 3,
+              stepperStyle: const CartStepperStyle(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                borderColor: Colors.deepPurple,
+              ),
+              onQuantityChanged: (qty) =>
+                  setState(() => _productTileQty4 = qty),
+              onRemove: () => setState(() => _productTileQty4 = 0),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Navigate to product details'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap the monitor tile to see onTap callback',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
+          'CartProductTile - Customized',
+          'Double quantities, custom padding, and larger stepper',
+          [
+            CartProductTile<double>(
+              leading: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.brown.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child:
+                    Icon(Icons.coffee, color: Colors.brown.shade700, size: 32),
+              ),
+              title: 'Premium Coffee Beans',
+              subtitle: 'Single origin, medium roast',
+              price: '\$${(18.50 * _productTileWeightQty).toStringAsFixed(2)}',
+              quantity: _productTileWeightQty,
+              minQuantity: 0.25,
+              maxQuantity: 5.0,
+              step: 0.25,
+              stepperSize: CartStepperSize.normal,
+              padding: const EdgeInsets.all(16),
+              borderRadius: 16,
+              onQuantityChanged: (qty) =>
+                  setState(() => _productTileWeightQty = qty),
+              onRemove: () => setState(() => _productTileWeightQty = 0.0),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'CartProductTile<double> with step: 0.25 for weight-based pricing',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 12),
+            CartProductTile(
+              leading: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.local_pizza,
+                    color: Colors.red.shade700, size: 32),
+              ),
+              title: 'Margherita Pizza',
+              subtitle: 'Fresh mozzarella, basil',
+              price: '\$14.99',
+              quantity: _productTilePizzaQty,
+              maxQuantity: 5,
+              stepperSize: CartStepperSize.large,
+              stepperStyle: const CartStepperStyle(
+                backgroundColor: Color(0xFFE53935),
+                foregroundColor: Colors.white,
+                borderColor: Color(0xFFE53935),
+                elevation: 4.0,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              backgroundColor: Colors.red.shade50,
+              borderRadius: 24,
+              onQuantityChanged: (qty) =>
+                  setState(() => _productTilePizzaQty = qty),
+              onRemove: () => setState(() => _productTilePizzaQty = 0),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
           'CartBadge',
           'Display cart count on icons',
           [
@@ -1556,6 +2138,53 @@ class _ComponentsTabState extends State<_ComponentsTab>
             Text(
               'Total: $_totalVariants / 10',
               style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSection(
+          context,
+          'CartStepperGroup - Single Selection',
+          'Radio-style: only one item can have quantity > 0',
+          [
+            CartStepperGroup(
+              items: _singleSelectVariants,
+              size: CartStepperSize.compact,
+              selectionMode: CartStepperSelectionMode.single,
+              onQuantityChanged: (index, qty) {
+                setState(() {
+                  _singleSelectVariants = List.from(_singleSelectVariants);
+                  // In single selection mode, reset all others
+                  for (var i = 0; i < _singleSelectVariants.length; i++) {
+                    if (i == index) {
+                      _singleSelectVariants[i] =
+                          _singleSelectVariants[i].copyWith(quantity: qty);
+                    } else {
+                      _singleSelectVariants[i] =
+                          _singleSelectVariants[i].copyWith(quantity: 0);
+                    }
+                  }
+                });
+              },
+              onRemove: (index) {
+                setState(() {
+                  _singleSelectVariants = List.from(_singleSelectVariants);
+                  _singleSelectVariants[index] =
+                      _singleSelectVariants[index].copyWith(quantity: 0);
+                });
+              },
+              onTotalChanged: (total) {
+                // Total quantity callback
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'CartStepperSelectionMode.single',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ],
         ),
@@ -1648,8 +2277,8 @@ class _ComponentsTabState extends State<_ComponentsTab>
                     iconSize: 24,
                     iconColor: Colors.white,
                     enabled: _badgeCount > 0,
-                    onTap: () =>
-                        setState(() => _badgeCount = (_badgeCount - 1).clamp(0, 150)),
+                    onTap: () => setState(
+                        () => _badgeCount = (_badgeCount - 1).clamp(0, 150)),
                     onLongPressStart: () {},
                     onLongPressEnd: () {},
                     size: 44,
@@ -1684,8 +2313,8 @@ class _ComponentsTabState extends State<_ComponentsTab>
                     iconSize: 24,
                     iconColor: Colors.white,
                     enabled: _badgeCount < 150,
-                    onTap: () =>
-                        setState(() => _badgeCount = (_badgeCount + 1).clamp(0, 150)),
+                    onTap: () => setState(
+                        () => _badgeCount = (_badgeCount + 1).clamp(0, 150)),
                     onLongPressStart: () {},
                     onLongPressEnd: () {},
                     size: 44,
@@ -1717,6 +2346,9 @@ class _RealWorldTabState extends State<_RealWorldTab>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+
+  // View toggle
+  bool _showCatalog = false;
 
   final List<_Product> _products = [
     _Product(
@@ -1761,10 +2393,68 @@ class _RealWorldTabState extends State<_RealWorldTab>
     ),
   ];
 
+  // Grocery catalog products
+  final List<_Product> _groceries = [
+    _Product(
+      id: 'g1',
+      name: 'Organic Bananas',
+      description: 'Bunch of 6',
+      price: 2.49,
+      quantity: 0,
+      image: Icons.breakfast_dining,
+    ),
+    _Product(
+      id: 'g2',
+      name: 'Whole Milk',
+      description: '1 Gallon',
+      price: 4.99,
+      quantity: 0,
+      image: Icons.water_drop,
+    ),
+    _Product(
+      id: 'g3',
+      name: 'Sourdough Bread',
+      description: 'Artisan baked, sliced',
+      price: 5.99,
+      quantity: 0,
+      image: Icons.bakery_dining,
+    ),
+    _Product(
+      id: 'g4',
+      name: 'Free Range Eggs',
+      description: 'Dozen, large',
+      price: 6.49,
+      quantity: 0,
+      image: Icons.egg,
+    ),
+    _Product(
+      id: 'g5',
+      name: 'Greek Yogurt',
+      description: 'Plain, 32oz',
+      price: 5.49,
+      quantity: 0,
+      image: Icons.icecream,
+    ),
+    _Product(
+      id: 'g6',
+      name: 'Avocados',
+      description: 'Hass, pack of 4',
+      price: 4.99,
+      quantity: 0,
+      image: Icons.eco,
+    ),
+  ];
+
   int get _totalItems =>
       _products.fold(0, (sum, product) => sum + product.quantity);
 
   double get _totalPrice => _products.fold(
+      0.0, (sum, product) => sum + (product.price * product.quantity));
+
+  int get _groceryTotalItems =>
+      _groceries.fold(0, (sum, product) => sum + product.quantity);
+
+  double get _groceryTotalPrice => _groceries.fold(
       0.0, (sum, product) => sum + (product.price * product.quantity));
 
   void _updateQuantity(int index, int qty) {
@@ -1773,11 +2463,56 @@ class _RealWorldTabState extends State<_RealWorldTab>
     });
   }
 
+  void _updateGroceryQuantity(int index, int qty) {
+    setState(() {
+      _groceries[index] = _groceries[index].copyWith(quantity: qty);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
 
+    return Column(
+      children: [
+        // Toggle between views
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: _ViewToggleButton(
+                  label: 'Shopping Cart',
+                  icon: Icons.shopping_cart,
+                  isSelected: !_showCatalog,
+                  badgeCount: _totalItems,
+                  onTap: () => setState(() => _showCatalog = false),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ViewToggleButton(
+                  label: 'Grocery Store',
+                  icon: Icons.storefront,
+                  isSelected: _showCatalog,
+                  badgeCount: _groceryTotalItems,
+                  onTap: () => setState(() => _showCatalog = true),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _showCatalog
+              ? _buildGroceryCatalog(theme)
+              : _buildShoppingCart(theme),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShoppingCart(ThemeData theme) {
     return Column(
       children: [
         // Cart summary header
@@ -1867,7 +2602,6 @@ class _RealWorldTabState extends State<_RealWorldTab>
                 subtitle: product.description,
                 price: '\$${product.price.toStringAsFixed(2)}',
                 quantity: product.quantity,
-                minQuantity: 0,
                 maxQuantity: 10,
                 stepperSize: CartStepperSize.compact,
                 onQuantityChanged: (qty) => _updateQuantity(index, qty),
@@ -1878,55 +2612,256 @@ class _RealWorldTabState extends State<_RealWorldTab>
         ),
 
         // Checkout button
+        _buildCheckoutBar(theme, _totalItems, _totalPrice),
+      ],
+    );
+  }
+
+  Widget _buildGroceryCatalog(ThemeData theme) {
+    return Column(
+      children: [
+        // Store header
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: theme.scaffoldBackgroundColor,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
+            color: Colors.green.shade50,
+            border: Border(
+              bottom: BorderSide(color: theme.dividerColor),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.storefront, size: 32, color: Colors.green.shade700),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Fresh Groceries',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Tap + to add items to your basket',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              if (_groceryTotalItems > 0)
+                CartBadge(
+                  count: _groceryTotalItems,
+                  badgeColor: Colors.green.shade700,
+                  child: Icon(
+                    Icons.shopping_basket,
+                    size: 28,
+                    color: Colors.green.shade700,
+                  ),
+                ),
             ],
           ),
-          child: SafeArea(
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _totalItems > 0
-                    ? () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Checkout: $_totalItems items for \$${_totalPrice.toStringAsFixed(2)}',
-                            ),
-                          ),
-                        );
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
+        ),
+
+        // Grocery list with CartProductTile
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: _groceries.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final product = _groceries[index];
+              final colors = [
+                Colors.yellow.shade50,
+                Colors.blue.shade50,
+                Colors.amber.shade50,
+                Colors.orange.shade50,
+                Colors.pink.shade50,
+                Colors.green.shade50,
+              ];
+              final iconColors = [
+                Colors.yellow.shade800,
+                Colors.blue.shade700,
+                Colors.amber.shade800,
+                Colors.orange.shade700,
+                Colors.pink.shade700,
+                Colors.green.shade700,
+              ];
+              return CartProductTile(
+                leading: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: colors[index % colors.length],
                     borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-                child: Text(
-                  _totalItems > 0
-                      ? 'Checkout (\$${_totalPrice.toStringAsFixed(2)})'
-                      : 'Cart is Empty',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                  child: Icon(
+                    product.image,
+                    color: iconColors[index % iconColors.length],
+                    size: 28,
                   ),
                 ),
+                title: product.name,
+                subtitle: product.description,
+                price: '\$${product.price.toStringAsFixed(2)}',
+                quantity: product.quantity,
+                maxQuantity: 20,
+                stepperSize: CartStepperSize.compact,
+                stepperStyle: const CartStepperStyle(
+                  backgroundColor: Color(0xFF2E7D32),
+                  foregroundColor: Colors.white,
+                  borderColor: Color(0xFF2E7D32),
+                ),
+                borderRadius: 16,
+                onQuantityChanged: (qty) => _updateGroceryQuantity(index, qty),
+                onRemove: () => _updateGroceryQuantity(index, 0),
+              );
+            },
+          ),
+        ),
+
+        // Grocery checkout bar
+        if (_groceryTotalItems > 0)
+          _buildCheckoutBar(
+            theme,
+            _groceryTotalItems,
+            _groceryTotalPrice,
+            color: Colors.green.shade700,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCheckoutBar(
+    ThemeData theme,
+    int totalItems,
+    double totalPrice, {
+    Color? color,
+  }) {
+    final btnColor = color ?? theme.colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: totalItems > 0
+                ? () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Checkout: $totalItems items for \$${totalPrice.toStringAsFixed(2)}',
+                        ),
+                      ),
+                    );
+                  }
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: btnColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              totalItems > 0
+                  ? 'Checkout (\$${totalPrice.toStringAsFixed(2)})'
+                  : 'Cart is Empty',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _ViewToggleButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final int badgeCount;
+  final VoidCallback onTap;
+
+  const _ViewToggleButton({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.badgeCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: isSelected
+          ? theme.colorScheme.primaryContainer
+          : Colors.grey.shade100,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (badgeCount > 0)
+                CartBadge(
+                  count: badgeCount,
+                  size: 16,
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : Colors.grey[600],
+                  ),
+                )
+              else
+                Icon(
+                  icon,
+                  size: 20,
+                  color:
+                      isSelected ? theme.colorScheme.primary : Colors.grey[600],
+                ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : Colors.grey[600],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

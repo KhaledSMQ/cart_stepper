@@ -1,9 +1,14 @@
-// Main widget and types
-export 'src/cart_stepper.dart' show CartStepper;
+// Main widgets
+export 'src/cart_stepper.dart' show CartStepper, AsyncCartStepper;
 
 // Enums
 export 'src/cart_stepper_enums.dart'
-    show CartStepperLoadingType, CartStepperSize, AddToCartButtonStyle;
+    show
+        CartStepperLoadingType,
+        CartStepperSize,
+        AddToCartButtonStyle,
+        CartStepperDirection,
+        CartStepperSelectionMode;
 
 // Configuration classes
 export 'src/cart_stepper_config.dart'
@@ -11,7 +16,13 @@ export 'src/cart_stepper_config.dart'
         CartStepperLoadingConfig,
         CartStepperStyle,
         CartStepperAnimation,
-        AddToCartButtonConfig;
+        AddToCartButtonConfig,
+        CartStepperIconConfig,
+        CartStepperLongPressConfig,
+        CartStepperManualInputConfig,
+        CartStepperCollapseConfig,
+        CartStepperAsyncBehavior,
+        CartStepperUndoConfig;
 
 // Type definitions
 export 'src/cart_stepper_types.dart'
@@ -19,9 +30,13 @@ export 'src/cart_stepper_types.dart'
         QuantityChangedCallback,
         AsyncQuantityChangedCallback,
         QuantityValidator,
+        AsyncQuantityValidator,
+        DetailedQuantityChangedCallback,
         AsyncErrorCallback,
         ValidationRejectedCallback,
         OperationCancelledCallback,
+        CollapsedButtonBuilder,
+        ExpandedWidgetBuilder,
         QuantityChangeType;
 
 // Error types

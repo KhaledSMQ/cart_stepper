@@ -259,7 +259,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Widget should render without errors
-      expect(find.byType(CartStepper), findsOneWidget);
+      expect(find.byType(CartStepper<int>), findsOneWidget);
     });
 
     testWidgets('displays with large size', (WidgetTester tester) async {
@@ -278,7 +278,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Widget should render without errors
-      expect(find.byType(CartStepper), findsOneWidget);
+      expect(find.byType(CartStepper<int>), findsOneWidget);
     });
 
     testWidgets('applies custom style', (WidgetTester tester) async {
@@ -302,7 +302,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Widget should render without errors
-      expect(find.byType(CartStepper), findsOneWidget);
+      expect(find.byType(CartStepper<int>), findsOneWidget);
     });
 
     testWidgets('disabled state prevents interactions',
@@ -360,7 +360,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: CartStepper(
+            body: AsyncCartStepper(
               quantity: 1500,
               maxQuantity: 10000,
               quantityFormatter: QuantityFormatters.abbreviated,
@@ -415,7 +415,7 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
                   maxQuantity: 5,
                   onQuantityChanged: (newQty) {
@@ -452,7 +452,7 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
                   minQuantity: 2,
                   onQuantityChanged: (newQty) {
@@ -488,7 +488,7 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
                   maxQuantity: 10,
                   onQuantityChanged: (newQty) {
@@ -525,7 +525,7 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
                   minQuantity: 1,
                   onQuantityChanged: (newQty) {
@@ -1013,7 +1013,7 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
                   onQuantityChangedAsync: (newQty) async {
                     operationStarted = true;
@@ -1036,8 +1036,9 @@ void main() {
 
       expect(operationStarted, isTrue);
 
-      // Complete the operation
+      // Complete the operation and allow loading minimum duration to pass
       completer.complete();
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
 
       expect(quantity, equals(2));
@@ -1050,7 +1051,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: CartStepper(
+            body: AsyncCartStepper(
               quantity: 1,
               onQuantityChangedAsync: (newQty) async {
                 throw Exception('Network error');
@@ -1085,7 +1086,7 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
                   maxQuantity: 10,
                   validator: (current, newQty) => newQty <= 5,
@@ -1129,7 +1130,7 @@ void main() {
             body: Center(
               child: StatefulBuilder(
                 builder: (context, setState) {
-                  return CartStepper(
+                  return AsyncCartStepper(
                     quantity: quantity,
                     maxQuantity: 10,
                     validator: (current, newQty) {
@@ -1184,9 +1185,11 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
-                  optimisticUpdate: true,
+                  asyncBehavior: const CartStepperAsyncBehavior(
+                    optimisticUpdate: true,
+                  ),
                   onQuantityChangedAsync: (newQty) async {
                     await completer.future;
                     setState(() => quantity = newQty);
@@ -1208,8 +1211,9 @@ void main() {
       // Should show 2 immediately (optimistic)
       expect(find.text('2'), findsOneWidget);
 
-      // Complete the operation
+      // Complete the operation and allow loading minimum duration to pass
       completer.complete();
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
 
       expect(quantity, equals(2));
@@ -1226,10 +1230,12 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
-                  optimisticUpdate: true,
-                  revertOnError: true,
+                  asyncBehavior: const CartStepperAsyncBehavior(
+                    optimisticUpdate: true,
+                    revertOnError: true,
+                  ),
                   onQuantityChangedAsync: (newQty) async {
                     await completer.future;
                     throw Exception('Failed');
@@ -1254,8 +1260,9 @@ void main() {
       // Should show 4 optimistically (before error)
       expect(find.text('4'), findsOneWidget);
 
-      // Trigger the error
+      // Trigger the error and allow loading minimum duration to pass
       completer.complete();
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
 
       // Error should have been called
@@ -1280,9 +1287,11 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
-                  optimisticUpdate: true,
+                  asyncBehavior: const CartStepperAsyncBehavior(
+                    optimisticUpdate: true,
+                  ),
                   onQuantityChangedAsync: (newQty) async {
                     operationCount++;
                     final completer = Completer<void>();
@@ -1321,6 +1330,7 @@ void main() {
       for (final c in completers) {
         if (!c.isCompleted) c.complete();
       }
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
 
       // At least one operation should have completed
@@ -1338,12 +1348,14 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
                   maxQuantity: 100,
-                  enableLongPress: true,
-                  longPressInterval: const Duration(milliseconds: 50),
-                  initialLongPressDelay: const Duration(milliseconds: 100),
+                  longPressConfig: const CartStepperLongPressConfig(
+                    enabled: true,
+                    interval: Duration(milliseconds: 50),
+                    initialDelay: Duration(milliseconds: 100),
+                  ),
                   onQuantityChanged: (newQty) {
                     setState(() => quantity = newQty);
                   },
@@ -1362,9 +1374,10 @@ void main() {
         tester.getCenter(addButtons.last),
       );
 
-      // Wait for initial delay + some repeat time
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(milliseconds: 200));
+      // Wait for Flutter's long press recognition (~500ms) + initial delay + repeats
+      await tester.pump(const Duration(milliseconds: 500)); // Flutter long press timeout
+      await tester.pump(const Duration(milliseconds: 100)); // Our initial delay
+      await tester.pump(const Duration(milliseconds: 200)); // Several repeat intervals
       await tester.pump(const Duration(milliseconds: 200));
 
       await gesture.up();
@@ -1381,11 +1394,15 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: CartStepper(
+            body: AsyncCartStepper(
               quantity: 1,
               maxQuantity: 100,
-              enableLongPress: true,
-              allowLongPressForAsync: false,
+              longPressConfig: const CartStepperLongPressConfig(
+                enabled: true,
+              ),
+              asyncBehavior: const CartStepperAsyncBehavior(
+                allowLongPressForAsync: false,
+              ),
               onQuantityChangedAsync: (newQty) async {
                 operationCount++;
                 await Future.delayed(const Duration(milliseconds: 10));
@@ -1416,13 +1433,17 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
                   maxQuantity: 100,
-                  enableLongPress: true,
-                  allowLongPressForAsync: false,
-                  longPressInterval: const Duration(milliseconds: 50),
-                  initialLongPressDelay: const Duration(milliseconds: 100),
+                  longPressConfig: const CartStepperLongPressConfig(
+                    enabled: true,
+                    interval: Duration(milliseconds: 50),
+                    initialDelay: Duration(milliseconds: 100),
+                  ),
+                  asyncBehavior: const CartStepperAsyncBehavior(
+                    allowLongPressForAsync: false,
+                  ),
                   onQuantityChangedAsync: (newQty) async {
                     operationCount++;
                     await Future.delayed(const Duration(milliseconds: 10));
@@ -1551,9 +1572,11 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
-                  enableManualInput: true,
+                  manualInputConfig: const CartStepperManualInputConfig(
+                    enabled: true,
+                  ),
                   onQuantityChanged: (newQty) {
                     setState(() => quantity = newQty);
                   },
@@ -1578,22 +1601,24 @@ void main() {
     testWidgets('manual input submits on enter',
         (WidgetTester tester) async {
       int quantity = 5;
-      int? submittedValue;
+      num? submittedValue;
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
-                  enableManualInput: true,
+                  manualInputConfig: CartStepperManualInputConfig(
+                    enabled: true,
+                    onSubmitted: (value) {
+                      submittedValue = value;
+                    },
+                  ),
                   maxQuantity: 100,
                   onQuantityChanged: (newQty) {
                     setState(() => quantity = newQty);
-                  },
-                  onManualInputSubmitted: (value) {
-                    submittedValue = value;
                   },
                 );
               },
@@ -1626,9 +1651,11 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
-                  enableManualInput: true,
+                  manualInputConfig: const CartStepperManualInputConfig(
+                    enabled: true,
+                  ),
                   minQuantity: 1,
                   maxQuantity: 10,
                   onQuantityChanged: (newQty) {
@@ -1671,10 +1698,12 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) {
-                return CartStepper(
+                return AsyncCartStepper(
                   quantity: quantity,
                   maxQuantity: 100,
-                  debounceDelay: const Duration(milliseconds: 300),
+                  asyncBehavior: const CartStepperAsyncBehavior(
+                    debounceDelay: Duration(milliseconds: 300),
+                  ),
                   onQuantityChangedAsync: (newQty) async {
                     apiCallCount++;
                     await Future.delayed(const Duration(milliseconds: 50));
@@ -1716,22 +1745,32 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: CartStepper(
-              quantity: 5,
-              autoCollapseDelay: const Duration(milliseconds: 500),
-              initiallyExpanded: true,
-              onQuantityChanged: (_) {},
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                height: 50,
+                child: AsyncCartStepper(
+                  quantity: 5,
+                  collapseConfig: const CartStepperCollapseConfig(
+                    autoCollapseDelay: Duration(milliseconds: 500),
+                    initiallyExpanded: true,
+                  ),
+                  onQuantityChanged: (_) {},
+                ),
+              ),
             ),
           ),
         ),
       );
 
-      await tester.pumpAndSettle();
+      // Allow initial animation to finish
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
       // Should be expanded initially
       expect(find.byIcon(Icons.remove), findsOneWidget);
 
-      // Wait for auto-collapse
+      // Wait for auto-collapse timer to fire
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
 
@@ -1749,7 +1788,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: CartStepper(
+            body: AsyncCartStepper(
               quantity: 1,
               onQuantityChangedAsync: (newQty) async {
                 throw Exception('Test error');
@@ -1801,8 +1840,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Widget should render without errors
-      expect(find.byType(ThemedCartStepper), findsOneWidget);
-      expect(find.byType(CartStepper), findsOneWidget);
+      expect(find.byType(ThemedCartStepper<int>), findsOneWidget);
+      expect(find.byType(CartStepper<int>), findsOneWidget);
     });
 
     testWidgets('ThemedCartStepper local props override theme',
@@ -1827,7 +1866,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Widget should render with compact size (overriding theme's large)
-      expect(find.byType(ThemedCartStepper), findsOneWidget);
+      expect(find.byType(ThemedCartStepper<int>), findsOneWidget);
     });
   });
 

@@ -10,7 +10,7 @@ import 'cart_stepper_types.dart';
 /// and listen to state changes. It's designed to work with any state
 /// management solution.
 ///
-/// ## Basic Example
+/// ## Basic Example (with CartStepper)
 /// ```dart
 /// final controller = CartStepperController(initialQuantity: 0);
 ///
@@ -21,14 +21,14 @@ import 'cart_stepper_types.dart';
 /// )
 /// ```
 ///
-/// ## Async Example with API calls
+/// ## Async Example (with AsyncCartStepper)
 /// ```dart
 /// final controller = CartStepperController(
 ///   initialQuantity: 0,
 ///   onError: (error, stack) => print('Error: $error'),
 /// );
 ///
-/// CartStepper(
+/// AsyncCartStepper(
 ///   quantity: controller.quantity,
 ///   isLoading: controller.isLoading,
 ///   onQuantityChangedAsync: (qty) => controller.setQuantityAsync(
@@ -53,31 +53,31 @@ import 'cart_stepper_types.dart';
 /// ```
 ///
 /// See also:
-/// - [CartStepper] for the widget that displays the stepper
-class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin {
-  int _quantity;
+/// - [CartStepper] for simple synchronous stepper usage
+/// - [AsyncCartStepper] for async operations with loading indicators
+class CartStepperController<T extends num> extends ChangeNotifier
+    with DiagnosticableTreeMixin {
+  T _quantity;
   bool _isExpanded;
   bool _isLoading = false;
-  int? _pendingQuantity;
+  T? _pendingQuantity;
   int _operationId = 0;
   bool _disposed = false;
 
   /// Whether this controller has been disposed.
-  ///
-  /// Once disposed, the controller should not be used.
   bool get isDisposed => _disposed;
 
   /// Minimum allowed quantity.
-  final int minQuantity;
+  final num minQuantity;
 
   /// Maximum allowed quantity.
-  final int maxQuantity;
+  final num maxQuantity;
 
   /// Step value for increment/decrement operations.
-  final int step;
+  final num step;
 
   /// Optional validator for quantity changes.
-  final QuantityValidator? validator;
+  final QuantityValidator<T>? validator;
 
   /// Optional error callback for async operations.
   final AsyncErrorCallback? onError;
@@ -88,26 +88,37 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   /// Optional callback when min quantity is reached.
   final VoidCallback? onMinReached;
 
+  /// Helper to convert num to T.
+  T _asT(num value) {
+    if (value is T) return value;
+    if (T == int) return value.toInt() as T;
+    if (T == double) return value.toDouble() as T;
+    return value as T;
+  }
+
   /// Creates a cart stepper controller.
   ///
   /// The [initialQuantity] is clamped between [minQuantity] and [maxQuantity].
   CartStepperController({
-    int initialQuantity = 0,
-    this.minQuantity = 0,
+    required T initialQuantity,
+    this.minQuantity = 1,
     this.maxQuantity = 99,
     this.step = 1,
     this.validator,
     this.onError,
     this.onMaxReached,
     this.onMinReached,
-  })  : assert(minQuantity >= 0, 'minQuantity must be >= 0'),
+  })  : assert(minQuantity > 0, 'minQuantity must be > 0'),
         assert(maxQuantity > minQuantity, 'maxQuantity must be > minQuantity'),
         assert(step > 0, 'step must be > 0'),
-        _quantity = initialQuantity.clamp(minQuantity, maxQuantity),
-        _isExpanded = initialQuantity > 0;
+        _quantity = initialQuantity,
+        _isExpanded = initialQuantity > 0 {
+    // Clamp after initialization to avoid type issues
+    _quantity = _asT(initialQuantity.clamp(minQuantity, maxQuantity));
+  }
 
   /// Current quantity value.
-  int get quantity => _quantity;
+  T get quantity => _quantity;
 
   /// Whether the stepper should be in expanded state.
   bool get isExpanded => _isExpanded;
@@ -119,10 +130,10 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   bool get hasPendingOperation => _pendingQuantity != null;
 
   /// The pending quantity value (for optimistic updates).
-  int? get pendingQuantity => _pendingQuantity;
+  T? get pendingQuantity => _pendingQuantity;
 
   /// Effective quantity to display (pending or actual).
-  int get displayQuantity => _pendingQuantity ?? _quantity;
+  T get displayQuantity => _pendingQuantity ?? _quantity;
 
   /// Whether increment is possible from current state.
   bool get canIncrement => !_isLoading && displayQuantity + step <= maxQuantity;
@@ -141,16 +152,16 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   /// The value is clamped between [minQuantity] and [maxQuantity].
   /// Notifies listeners if the value changes.
   /// If called during an async operation, the pending operation is cancelled.
-  void setQuantity(int value) {
+  void setQuantity(T value) {
     _checkDisposed();
-    final newValue = value.clamp(minQuantity, maxQuantity);
-    
+    final newValue = _asT(value.clamp(minQuantity, maxQuantity));
+
     // Cancel any pending async operation to prevent race conditions
     if (_isLoading) {
       _operationId++;
       _isLoading = false;
     }
-    
+
     if (_quantity != newValue || _pendingQuantity != null) {
       _quantity = newValue;
       _isExpanded = _quantity > 0;
@@ -173,12 +184,12 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   /// );
   /// ```
   Future<bool> setQuantityAsync(
-    int value,
+    T value,
     Future<void> Function() operation, {
     bool optimistic = false,
   }) async {
     _checkDisposed();
-    final newValue = value.clamp(minQuantity, maxQuantity);
+    final newValue = _asT(value.clamp(minQuantity, maxQuantity));
 
     // Check validator
     if (validator != null && !validator!(_quantity, newValue)) {
@@ -188,7 +199,6 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
     final myOperationId = ++_operationId;
     final previousQuantity = _quantity;
 
-    // Batch state changes and notify once to avoid multiple rebuilds
     if (optimistic) {
       _pendingQuantity = newValue;
     }
@@ -198,7 +208,6 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
     try {
       await operation();
 
-      // Check if this operation was superseded
       if (_operationId != myOperationId) {
         return false;
       }
@@ -207,7 +216,6 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
       _isExpanded = _quantity > 0;
       _pendingQuantity = null;
 
-      // Trigger callbacks
       if (_quantity >= maxQuantity) {
         onMaxReached?.call();
       } else if (_quantity <= minQuantity) {
@@ -216,23 +224,21 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
 
       return true;
     } catch (error, stackTrace) {
-      // Check if this operation was superseded or controller disposed
       if (_operationId != myOperationId || _disposed) {
         return false;
       }
 
-      // Revert optimistic update
       if (optimistic) {
         _pendingQuantity = null;
         _quantity = previousQuantity;
       }
 
-      // Safely call error callback, catching any exceptions it might throw
       try {
         onError?.call(error, stackTrace);
       } catch (callbackError, callbackStack) {
         assert(() {
-          debugPrint('CartStepperController: Error in onError callback - $callbackError');
+          debugPrint(
+              'CartStepperController: Error in onError callback - $callbackError');
           debugPrint('Original error: $error');
           debugPrint('Callback stack trace: $callbackStack');
           return true;
@@ -253,9 +259,8 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   void increment() {
     _checkDisposed();
     if (canIncrement) {
-      final newQty = displayQuantity + step;
+      final newQty = _asT(displayQuantity + step);
 
-      // Check validator
       if (validator != null && !validator!(displayQuantity, newQty)) {
         return;
       }
@@ -268,18 +273,15 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   }
 
   /// Increment quantity asynchronously.
-  ///
-  /// The [operation] is called with the new quantity value.
   Future<bool> incrementAsync(
-    Future<void> Function(int newQty) operation, {
+    Future<void> Function(T newQty) operation, {
     bool optimistic = false,
   }) async {
     _checkDisposed();
     if (!canIncrement) return false;
 
-    final newQty = displayQuantity + step;
+    final newQty = _asT(displayQuantity + step);
 
-    // Check validator
     if (validator != null && !validator!(displayQuantity, newQty)) {
       return false;
     }
@@ -292,14 +294,11 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   }
 
   /// Decrement quantity by [step].
-  ///
-  /// Does nothing if already at [minQuantity] or loading.
   void decrement() {
     _checkDisposed();
     if (canDecrement) {
-      final newQty = displayQuantity - step;
+      final newQty = _asT(displayQuantity - step);
 
-      // Check validator
       if (validator != null && !validator!(displayQuantity, newQty)) {
         return;
       }
@@ -312,18 +311,15 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   }
 
   /// Decrement quantity asynchronously.
-  ///
-  /// The [operation] is called with the new quantity value.
   Future<bool> decrementAsync(
-    Future<void> Function(int newQty) operation, {
+    Future<void> Function(T newQty) operation, {
     bool optimistic = false,
   }) async {
     _checkDisposed();
     if (!canDecrement) return false;
 
-    final newQty = displayQuantity - step;
+    final newQty = _asT(displayQuantity - step);
 
-    // Check validator
     if (validator != null && !validator!(displayQuantity, newQty)) {
       return false;
     }
@@ -340,15 +336,14 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   /// Respects [minQuantity] constraint - quantity is set to minQuantity, not 0.
   void reset() {
     _checkDisposed();
-    final targetQty = minQuantity;
+    final targetQty = _asT(minQuantity);
     if (_quantity != targetQty || _isExpanded || _pendingQuantity != null) {
       _quantity = targetQty;
       _isExpanded = targetQty > 0;
       _pendingQuantity = null;
       _isLoading = false;
       notifyListeners();
-      
-      // Trigger callback if at minimum
+
       if (_quantity <= minQuantity) {
         onMinReached?.call();
       }
@@ -371,24 +366,23 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
 
       if (_operationId != myOperationId) return false;
 
-      _quantity = targetQty;
+      _quantity = _asT(targetQty);
       _isExpanded = targetQty > 0;
       _pendingQuantity = null;
-      
-      // Trigger callback if at minimum
+
       if (_quantity <= minQuantity) {
         onMinReached?.call();
       }
-      
+
       return true;
     } catch (error, stackTrace) {
       if (_operationId != myOperationId || _disposed) return false;
-      // Safely call error callback, catching any exceptions it might throw
       try {
         onError?.call(error, stackTrace);
       } catch (callbackError, callbackStack) {
         assert(() {
-          debugPrint('CartStepperController: Error in onError callback - $callbackError');
+          debugPrint(
+              'CartStepperController: Error in onError callback - $callbackError');
           debugPrint('Original error: $error');
           debugPrint('Callback stack trace: $callbackStack');
           return true;
@@ -415,16 +409,11 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   }
 
   /// Expand the stepper.
-  ///
-  /// If quantity is 0, sets it to [minQuantity] or [step] (whichever is greater than 0),
-  /// clamped to [maxQuantity].
   void expand() {
     _checkDisposed();
     if (!_isExpanded) {
       if (_quantity == 0) {
-        // Calculate initial quantity, clamped to valid range
-        final initialQty = minQuantity > 0 ? minQuantity : step;
-        _quantity = initialQty.clamp(minQuantity, maxQuantity);
+        _quantity = _asT(minQuantity);
       }
       _isExpanded = true;
       notifyListeners();
@@ -432,18 +421,15 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   }
 
   /// Collapse the stepper and reset quantity to [minQuantity].
-  ///
-  /// Respects [minQuantity] constraint - quantity is set to minQuantity, not 0.
   void collapse() {
     _checkDisposed();
-    final targetQty = minQuantity;
+    final targetQty = _asT(minQuantity);
     if (_isExpanded || _quantity != targetQty) {
       _isExpanded = false;
       _quantity = targetQty;
       _pendingQuantity = null;
       notifyListeners();
-      
-      // Trigger callback if at minimum
+
       if (_quantity <= minQuantity) {
         onMinReached?.call();
       }
@@ -452,12 +438,12 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
 
   /// Set quantity to [maxQuantity].
   void setToMax() {
-    setQuantity(maxQuantity);
+    setQuantity(_asT(maxQuantity));
   }
 
   /// Set quantity to [minQuantity].
   void setToMin() {
-    setQuantity(minQuantity);
+    setQuantity(_asT(minQuantity));
   }
 
   /// Throws an assertion error in debug mode if this controller has been disposed.
@@ -489,46 +475,52 @@ class CartStepperController extends ChangeNotifier with DiagnosticableTreeMixin 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(IntProperty('quantity', quantity));
-    properties.add(IntProperty('displayQuantity', displayQuantity));
-    properties.add(IntProperty('minQuantity', minQuantity));
-    properties.add(IntProperty('maxQuantity', maxQuantity));
-    properties.add(IntProperty('step', step));
-    properties.add(FlagProperty('isExpanded', value: isExpanded, ifTrue: 'expanded'));
-    properties.add(FlagProperty('isLoading', value: isLoading, ifTrue: 'loading'));
-    properties.add(FlagProperty('canIncrement', value: canIncrement, ifFalse: 'atMax'));
-    properties.add(FlagProperty('canDecrement', value: canDecrement, ifFalse: 'atMin'));
-    properties.add(FlagProperty('isDisposed', value: _disposed, ifTrue: 'disposed'));
+    properties.add(DiagnosticsProperty<num>('quantity', quantity));
+    properties
+        .add(DiagnosticsProperty<num>('displayQuantity', displayQuantity));
+    properties.add(DiagnosticsProperty<num>('minQuantity', minQuantity));
+    properties.add(DiagnosticsProperty<num>('maxQuantity', maxQuantity));
+    properties.add(DiagnosticsProperty<num>('step', step));
+    properties
+        .add(FlagProperty('isExpanded', value: isExpanded, ifTrue: 'expanded'));
+    properties
+        .add(FlagProperty('isLoading', value: isLoading, ifTrue: 'loading'));
+    properties.add(
+        FlagProperty('canIncrement', value: canIncrement, ifFalse: 'atMax'));
+    properties.add(
+        FlagProperty('canDecrement', value: canDecrement, ifFalse: 'atMin'));
+    properties
+        .add(FlagProperty('isDisposed', value: _disposed, ifTrue: 'disposed'));
     if (_pendingQuantity != null) {
-      properties.add(IntProperty('pendingQuantity', _pendingQuantity));
+      properties
+          .add(DiagnosticsProperty<num>('pendingQuantity', _pendingQuantity));
     }
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
     final loading = _isLoading ? ', loading' : '';
-    final pending = _pendingQuantity != null ? ', pending: $_pendingQuantity' : '';
+    final pending =
+        _pendingQuantity != null ? ', pending: $_pendingQuantity' : '';
     return 'CartStepperController(quantity: $_quantity, min: $minQuantity, max: $maxQuantity, step: $step$loading$pending)';
   }
 }
 
 /// Extension for easy integration with common state management patterns.
-extension CartStepperControllerExtensions on CartStepperController {
+extension CartStepperControllerExtensions<T extends num>
+    on CartStepperController<T> {
   /// Create a copy with different parameters.
-  ///
-  /// Useful for creating derived controllers with adjusted limits.
-  /// Note: Callbacks (validator, onError, etc.) are not copied.
-  CartStepperController copyWith({
-    int? initialQuantity,
-    int? minQuantity,
-    int? maxQuantity,
-    int? step,
-    QuantityValidator? validator,
+  CartStepperController<T> copyWith({
+    T? initialQuantity,
+    num? minQuantity,
+    num? maxQuantity,
+    num? step,
+    QuantityValidator<T>? validator,
     AsyncErrorCallback? onError,
     VoidCallback? onMaxReached,
     VoidCallback? onMinReached,
   }) {
-    return CartStepperController(
+    return CartStepperController<T>(
       initialQuantity: initialQuantity ?? quantity,
       minQuantity: minQuantity ?? this.minQuantity,
       maxQuantity: maxQuantity ?? this.maxQuantity,
@@ -541,9 +533,6 @@ extension CartStepperControllerExtensions on CartStepperController {
   }
 
   /// Convert to a map for serialization.
-  ///
-  /// The resulting map can be stored in persistent storage or sent over network.
-  /// Note: Callbacks are not serialized.
   Map<String, dynamic> toJson() {
     return {
       'quantity': quantity,
@@ -558,11 +547,9 @@ extension CartStepperControllerExtensions on CartStepperController {
 
 /// Extension for creating a controller from JSON.
 extension CartStepperControllerFromJson on Map<String, dynamic> {
-  /// Create a [CartStepperController] from a JSON map.
-  ///
-  /// This is the inverse of [CartStepperControllerExtensions.toJson].
-  CartStepperController toCartStepperController() {
-    return CartStepperController(
+  /// Create an int-based [CartStepperController] from a JSON map.
+  CartStepperController<int> toCartStepperController() {
+    return CartStepperController<int>(
       initialQuantity: this['quantity'] as int? ?? 0,
       minQuantity: this['minQuantity'] as int? ?? 0,
       maxQuantity: this['maxQuantity'] as int? ?? 99,
