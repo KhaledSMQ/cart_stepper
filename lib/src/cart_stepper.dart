@@ -277,8 +277,7 @@ class CartStepper extends StatefulWidget {
     BuildContext context,
     CartStepperError error,
     VoidCallback retry,
-  )?
-  errorBuilder;
+  )? errorBuilder;
 
   /// Configuration for the "Add to Cart" button appearance.
   final AddToCartButtonConfig addToCartConfig;
@@ -428,8 +427,7 @@ class CartStepper extends StatefulWidget {
     int currentValue,
     ValueChanged<String> onSubmit,
     VoidCallback onCancel,
-  )?
-  manualInputBuilder;
+  )? manualInputBuilder;
 
   /// Creates a cart stepper widget.
   const CartStepper({
@@ -490,10 +488,10 @@ class CartStepper extends StatefulWidget {
     this.manualInputDecoration,
     this.onManualInputSubmitted,
     this.manualInputBuilder,
-  }) : assert(minQuantity >= 0, 'minQuantity must be >= 0'),
-       assert(maxQuantity > minQuantity, 'maxQuantity must be > minQuantity'),
-       assert(step > 0, 'step must be > 0'),
-       assert(quantity >= 0, 'quantity cannot be negative');
+  })  : assert(minQuantity >= 0, 'minQuantity must be >= 0'),
+        assert(maxQuantity > minQuantity, 'maxQuantity must be > minQuantity'),
+        assert(step > 0, 'step must be > 0'),
+        assert(quantity >= 0, 'quantity cannot be negative');
 
   @override
   State<CartStepper> createState() => _CartStepperState();
@@ -1586,8 +1584,7 @@ class _CartStepperState extends State<CartStepper>
     // Build the main stepper widget
     Widget stepper = RepaintBoundary(
       child: Semantics(
-        label:
-            widget.semanticLabel ??
+        label: widget.semanticLabel ??
             'Quantity: $qty. Tap to ${qty == 0 ? 'add' : 'adjust'}',
         value: qty.toString(),
         increasedValue: canInc ? '${qty + widget.step}' : null,
@@ -1635,8 +1632,7 @@ class _CartStepperState extends State<CartStepper>
     final collapsedSize = _calculateCollapsedSize(sizeConfig);
 
     // Calculate current width based on animation
-    final currentWidth =
-        collapsedSize +
+    final currentWidth = collapsedSize +
         (expandedWidth - collapsedSize) * _expandAnimation.value;
 
     final borderRadius = _getCollapsedBorderRadius(height);
@@ -1645,10 +1641,10 @@ class _CartStepperState extends State<CartStepper>
     final isButtonStyle =
         widget.addToCartConfig.style == AddToCartButtonStyle.button;
     final qty = _displayQuantity;
-    final showFilledBackground =
-        _isExpanded ||
+    final showFilledBackground = _isExpanded ||
         _expandAnimation.value > 0 ||
-        (isButtonStyle && qty == 0);
+        (isButtonStyle && qty == 0) ||
+        (qty > 0);
 
     final collapsedBg = widget.collapsedBackgroundColor ?? Colors.transparent;
     final effectiveBgColor = showFilledBackground ? _bgColor : collapsedBg;
@@ -1662,8 +1658,7 @@ class _CartStepperState extends State<CartStepper>
         border: (!showFilledBackground || _expandAnimation.value < 1)
             ? Border.all(color: _bdColor, width: widget.style.borderWidth)
             : null,
-        boxShadow:
-            widget.style.elevation > 0 &&
+        boxShadow: widget.style.elevation > 0 &&
                 (showFilledBackground || _expandAnimation.value > 0.5)
             ? [
                 BoxShadow(
@@ -1774,15 +1769,39 @@ class _CartStepperState extends State<CartStepper>
         loadingColor,
       );
     } else if (qty > 0) {
-      content = CartBadge(
-        count: qty,
-        size: 14,
-        badgeColor: _bgColor,
-        textColor: _fgColor,
-        child: Icon(
-          widget.separateIcon ?? Icons.shopping_cart,
-          size: widget.separateIconSize ?? iconSize,
-          color: widget.enabled ? _bdColor : _disabledBdColor,
+      // Cart icon with centered count badge
+      final badgeIconSize = widget.separateIconSize ?? iconSize;
+      content = SizedBox(
+        width: badgeIconSize + 8,
+        height: badgeIconSize + 8,
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            // Cart icon
+            Icon(
+              widget.separateIcon ?? Icons.shopping_cart,
+              size: badgeIconSize,
+              color: _fgColor,
+            ),
+            // Centered count badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: _fgColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                qty > 99 ? '99+' : '$qty',
+                style: TextStyle(
+                  color: _bgColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  height: 1,
+                ),
+              ),
+            ),
+          ],
         ),
       );
     } else if (isButtonStyle) {
@@ -1805,8 +1824,7 @@ class _CartStepperState extends State<CartStepper>
     // Use different ink shape based on button style
     final inkShape = (isButtonStyle && qty == 0)
         ? RoundedRectangleBorder(
-            borderRadius:
-                buttonConfig.borderRadius ??
+            borderRadius: buttonConfig.borderRadius ??
                 BorderRadius.circular(widget.size.height / 2),
           )
         : const CircleBorder();
@@ -1892,8 +1910,7 @@ class _CartStepperState extends State<CartStepper>
     // 1. showDeleteAtMin is true AND
     // 2. quantity is at min AND
     // 3. Either onRemove exists OR deleteViaQuantityChange is enabled with onQuantityChanged
-    final hasRemoveAction =
-        widget.onRemove != null ||
+    final hasRemoveAction = widget.onRemove != null ||
         widget.onRemoveAsync != null ||
         (widget.deleteViaQuantityChange &&
             (widget.onQuantityChanged != null ||
@@ -2029,8 +2046,7 @@ class _CartStepperState extends State<CartStepper>
     ).merge(widget.style.textStyle);
 
     // Use custom decoration or create a minimal one
-    final decoration =
-        widget.manualInputDecoration ??
+    final decoration = widget.manualInputDecoration ??
         InputDecoration(
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(
