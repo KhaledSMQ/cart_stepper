@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.0.1
+
+### Documentation
+
+- Added **Deep Dive: Throttle vs Debounce** section explaining the two async execution strategies with flow diagrams and comparison table
+- Added **`isLoading` and Async Modes** section documenting external vs internal loading state interactions and the debounce gotcha
+- Added **Best Practices & Common Patterns** with 5 production-ready async configuration patterns
+- Added **Non-Blocking UI** guide with strategy matrix showing which config combinations keep the stepper responsive
+- Added **Tips, Gotchas & Hidden Behaviors** section covering 22+ non-obvious behaviors, edge cases, and practical tips for production use
+
 ## 2.0.0
 
 ### Breaking Changes

@@ -39,6 +39,9 @@ A highly customizable, animated cart quantity stepper widget for Flutter with as
   - [Validation with Feedback](#validation-with-feedback)
   - [Quantity Formatting](#quantity-formatting)
   - [Async Behavior Configuration](#async-behavior-configuration-cartstepperasyncbehavior)
+  - [Deep Dive: Throttle vs Debounce](#deep-dive-throttle-vs-debounce)
+  - [`isLoading` and Async Modes](#isloading-and-async-modes)
+  - [Best Practices & Common Patterns](#best-practices--common-patterns)
   - [Reactive Streams](#reactive-streams)
   - [Undo After Delete](#undo-after-delete)
   - [Async Validator](#async-validator)
@@ -54,6 +57,7 @@ A highly customizable, animated cart quantity stepper widget for Flutter with as
   - [StepperButton](#stepperbutton)
   - [AnimatedCounter](#animatedcounter)
 - [Error Types](#error-types)
+- [Tips, Gotchas & Hidden Behaviors](#tips-gotchas--hidden-behaviors)
 - [Migration Guide](#migration-guide)
 - [Example App](#example-app)
 - [Contributing](#contributing)
@@ -97,7 +101,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  advance_cart_stepper: ^2.0.0
+  advance_cart_stepper: ^2.0.1
 ```
 
 Then run:
@@ -681,6 +685,287 @@ AsyncCartStepper(
 | `CartStepperAsyncBehavior.optimistic` | Optimistic updates with revert on error |
 | `CartStepperAsyncBehavior.debounced()` | Debounced with configurable delay (default 500ms) |
 
+### Deep Dive: Throttle vs Debounce
+
+Understanding the two execution strategies is key to choosing the right `asyncBehavior` for your use case.
+
+#### Throttle Mode (Default)
+
+When `debounceDelay` is **not set** (the default), each tap triggers an API call immediately, but rapid taps are throttled so no more than one call fires per `throttleInterval` (default 80ms). If a tap arrives while the throttle window is active, the latest value is queued and fires when the window elapses.
+
+```
+User taps: +  +  +  (rapid taps)
+           |  |  |
+API calls: [call 1]  (throttled → queued) → [call 2 with latest value]
+```
+
+```dart
+// Default throttle mode — each tap triggers an API call (throttled at 80ms)
+AsyncCartStepper(
+  quantity: quantity,
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
+#### Debounce Mode
+
+When `debounceDelay` is set, the widget switches to a completely different strategy:
+
+1. **UI updates instantly** — the quantity counter changes immediately on each tap
+2. **A timer starts** — if the user taps again before the timer fires, the timer resets
+3. **One API call fires** — only after the user has **stopped interacting** for the `debounceDelay` duration, a single API call is made with the **final accumulated value**
+
+```
+User taps:  +    +    +         (rapid taps, then pause)
+            |    |    |
+UI display: 1    2    3         (updates instantly)
+            [reset] [reset]     (timer keeps resetting)
+                          |--- 500ms idle ---|
+API call:                                   [call with qty=3]
+```
+
+```dart
+// Debounce mode — user taps +++ rapidly, UI shows 3 instantly,
+// then ONE API call fires 500ms after the last tap
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
+#### Key Differences
+
+| Aspect | Throttle (default) | Debounce |
+|---|---|---|
+| API call timing | Immediately (throttled) | After user stops interacting |
+| Number of API calls | One per tap (deduped by throttle window) | One total for all rapid taps |
+| UI update | Waits for API (unless `optimisticUpdate`) | Instant local update |
+| Long press for async | Blocked by default | Allowed automatically |
+| Best for | Single item adjustments | Shopping carts, bulk edits |
+
+> **Tip:** Debounce mode is ideal for shopping cart APIs where you want responsive UI without hammering the server. The user can tap 5 times rapidly and only one API call is made.
+
+#### Debounce + Long Press
+
+In throttle mode, long-press rapid-fire is **blocked** for async operations by default (to prevent queuing many concurrent API calls). But in debounce mode, long-press is **automatically allowed** because there is no risk — only one API call fires at the end regardless of how many taps occurred:
+
+```dart
+// Long press works smoothly in debounce mode — no extra config needed
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  longPressConfig: CartStepperLongPressConfig.fast,
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
+#### Debounce + Error Revert
+
+When `revertOnError` is `true` (the default), if the debounced API call fails, the displayed quantity reverts to the value **before the debounce accumulation started** — not just the last tap:
+
+```
+User taps:  1 → 2 → 3 → 4    (debounce accumulates)
+API call:   updateCart(4)      (fires after delay)
+API fails:  ✗ error
+UI reverts: 1                  (back to the starting value, not 3)
+```
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+    revertOnError: true, // default
+  ),
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+  onError: (error, stack) {
+    showErrorSnackBar('Failed to update cart');
+  },
+)
+```
+
+### `isLoading` and Async Modes
+
+The `isLoading` parameter lets you externally control the loading state. However, it interacts with debounce and optimistic updates in important ways.
+
+#### How Loading State Works Internally
+
+There are two sources of loading state:
+
+| Source | Description |
+|---|---|
+| `isLoading` (external) | Set by you via the widget parameter — **overrides** internal state |
+| Internal loading | Managed automatically by the widget during async operations |
+
+When `isLoading` is `null` (the default), the widget manages its own loading state:
+- In **throttle mode**: loading is `true` while each API call is in flight
+- In **debounce mode**: loading stays `false` during the debounce "waiting" phase and only becomes `true` when the API call actually fires
+
+When `isLoading` is explicitly set, it **always takes priority** over the internal state.
+
+#### Where Loading Blocks Interaction
+
+When loading is active (`isLoading == true` or internal loading is `true`):
+
+| Action | Blocked? | Override |
+|---|---|---|
+| Increment / decrement | Yes | Unless `optimisticUpdate: true` |
+| Add button | Yes | Unless `optimisticUpdate: true` |
+| Manual input | **Always blocked** | No override available |
+
+#### The Debounce Gotcha
+
+Debounce mode relies on the user being able to **tap multiple times freely** during the debounce accumulation window. If you externally set `isLoading: true` too broadly, it blocks all taps and defeats the purpose of debouncing:
+
+```dart
+// BAD — Don't do this with debounce mode
+AsyncCartStepper(
+  quantity: quantity,
+  isLoading: myGlobalLoadingFlag, // blocks taps during debounce window!
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async { ... },
+)
+
+// GOOD — Let the widget manage its own loading state
+AsyncCartStepper(
+  quantity: quantity,
+  // isLoading: not set (null) — internal state manages it correctly
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async { ... },
+)
+```
+
+#### Recommended `isLoading` Usage
+
+| Scenario | `isLoading` | Why |
+|---|---|---|
+| Debounce mode | Don't set (leave `null`) | Let internal state handle it |
+| Throttle + optimistic updates | Optional | Safe because `optimisticUpdate` bypasses the loading check |
+| Throttle (default, no optimistic) | Optional | Can use for external control |
+| External loading (e.g., page-level refresh) | `true` during refresh | Useful to block all interaction during unrelated loading |
+
+### Best Practices & Common Patterns
+
+#### Pattern 1: Quick Cart Update (Recommended for Most Apps)
+
+Debounce with error handling — responsive UI, minimal API calls:
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+  onError: (error, stack) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to update cart')),
+    );
+  },
+)
+```
+
+#### Pattern 2: Instant Feedback with Safety Net
+
+Optimistic updates + revert on error — feels instant, auto-recovers:
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior.optimistic,
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+  onError: (error, stack) {
+    showErrorSnackBar('Update failed — reverted');
+  },
+)
+```
+
+#### Pattern 3: Maximum Responsiveness (Optimistic + Debounce)
+
+Combines both strategies — UI updates instantly, one batched API call, reverts on failure:
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    optimisticUpdate: true,
+    revertOnError: true,
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+  onError: (error, stack) {
+    showErrorSnackBar('Update failed — reverted');
+  },
+)
+```
+
+#### Pattern 4: Strict Server-Authoritative
+
+No optimistic updates, no debounce — wait for the server on every change:
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    optimisticUpdate: false,
+    throttleInterval: Duration(milliseconds: 100),
+  ),
+  loadingConfig: CartStepperLoadingConfig.fast,
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
+#### Pattern 5: Debounce with Long Press for Bulk Adjustments
+
+Fast long-press + debounce — great for adjusting large quantities quickly:
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 800),
+  ),
+  longPressConfig: CartStepperLongPressConfig.fast,
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
 ### Reactive Streams
 
 Drive quantity from a `Stream`:
@@ -1117,6 +1402,443 @@ Helper types for operation results:
 // - OperationSuccess
 // - OperationFailure
 ```
+
+## Tips, Gotchas
+
+This section documents non-obvious behaviors, subtle edge cases, and practical tips that go beyond the basic API documentation. Read this before shipping to production.
+
+### `minQuantity` Must Be > 0
+
+Despite the doc comments saying "Defaults to 0", the actual default is `1` and the widget enforces `minQuantity > 0` via assertion. Passing `minQuantity: 0` will crash in debug mode.
+
+```dart
+// BAD — crashes in debug mode
+CartStepper(quantity: 1, minQuantity: 0, onQuantityChanged: (qty) {})
+
+// GOOD — minimum is 1 or higher
+CartStepper(quantity: 1, minQuantity: 1, onQuantityChanged: (qty) {})
+```
+
+This also means the "Add" button always sets quantity to `minQuantity` (not 0), and `controller.reset()` resets to `minQuantity` (not 0). There is no concept of "quantity = 0" in the widget -- quantity 0 is the collapsed/empty state where the "Add to Cart" button is shown.
+
+### Always Provide `onError` for Async Operations
+
+When using `AsyncCartStepper`, if no `onError` callback is provided and an async operation fails, the error is **silently swallowed in release builds**. You won't see any crash, log, or trace -- the stepper simply gets stuck in a failed state.
+
+```dart
+// BAD — errors vanish silently in production
+AsyncCartStepper(
+  quantity: quantity,
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty); // if this throws... silence
+  },
+)
+
+// GOOD — always handle errors
+AsyncCartStepper(
+  quantity: quantity,
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+  onError: (error, stackTrace) {
+    log('Cart update failed', error: error, stackTrace: stackTrace);
+    showErrorSnackBar('Failed to update cart');
+  },
+)
+```
+
+For visual error feedback, also provide an `errorBuilder`:
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  onQuantityChangedAsync: (qty) async { ... },
+  onError: (error, stack) => log('Error', error: error),
+  errorBuilder: (context, error, retry) {
+    return TextButton(onPressed: retry, child: Text('Retry'));
+  },
+)
+```
+
+### Long Press Is Silently Disabled for Async
+
+When you use `onQuantityChangedAsync`, long-press rapid-fire is **disabled by default** with no visual indication. The user holds the button and nothing happens beyond the first tap.
+
+This is intentional to prevent queuing many concurrent API calls, but it can confuse users. You have three options:
+
+```dart
+// Option 1: Explicitly allow long press for async (careful — can queue many API calls)
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(allowLongPressForAsync: true),
+  onQuantityChangedAsync: (qty) async { ... },
+)
+
+// Option 2: Use debounce mode — long press is automatically allowed
+// (only one API call fires at the end, so it's safe)
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async { ... },
+)
+
+// Option 3: Disable long press entirely to make it explicit
+AsyncCartStepper(
+  quantity: quantity,
+  longPressConfig: CartStepperLongPressConfig.disabled,
+  onQuantityChangedAsync: (qty) async { ... },
+)
+```
+
+### Long Press Never Triggers Removal
+
+Even during a long-press decrement hold, the stepper will **stop at `minQuantity`** and never trigger deletion. Only a **single tap** on the decrement/delete button when at `minQuantity` triggers `onRemove` / `onRemoveAsync`. This is intentional to prevent accidental deletions during rapid adjustment.
+
+### Optimistic Updates: Server Must Confirm Exact Value
+
+When using `optimisticUpdate: true`, the widget shows a pending value immediately and waits for the server to "confirm" it by matching `widget.quantity` to the pending value. If the server returns a **different** quantity (e.g., you sent 10 but server capped it to 8), the optimistic value **persists** until the async operation completes.
+
+```dart
+// If the server might return a different quantity than requested,
+// make sure to update widget.quantity from the server response:
+AsyncCartStepper(
+  quantity: serverQuantity, // always use the server-confirmed value
+  asyncBehavior: CartStepperAsyncBehavior.optimistic,
+  onQuantityChangedAsync: (qty) async {
+    final confirmedQty = await api.updateCart(itemId, qty);
+    setState(() => serverQuantity = confirmedQty); // use server's response
+  },
+)
+```
+
+### `revertOnError: false` Can Cause Stuck State
+
+When `optimisticUpdate: true` and `revertOnError: false`, if the async operation fails, the pending optimistic value is **never cleared**. The display stays stuck on the pending value forever.
+
+```dart
+// DANGEROUS — stuck pending value on error
+asyncBehavior: CartStepperAsyncBehavior(
+  optimisticUpdate: true,
+  revertOnError: false, // pending value stays if API fails
+)
+
+// SAFE — revert on error is the default
+asyncBehavior: CartStepperAsyncBehavior(
+  optimisticUpdate: true,
+  revertOnError: true, // default — reverts to pre-operation value
+)
+```
+
+### Loading Has a Minimum Duration of 300ms
+
+Even if your async operation completes in 10ms, the loading spinner shows for at least 300ms by default. This prevents visual "flicker" but can feel slow for fast operations.
+
+```dart
+// Use the fast preset to reduce minimum loading to 150ms
+AsyncCartStepper(
+  quantity: quantity,
+  loadingConfig: CartStepperLoadingConfig.fast,
+  onQuantityChangedAsync: (qty) async { ... },
+)
+
+// Or customize it directly
+AsyncCartStepper(
+  quantity: quantity,
+  loadingConfig: CartStepperLoadingConfig(
+    minimumDuration: Duration(milliseconds: 100), // shorter
+    showDelay: Duration(milliseconds: 200), // don't show spinner for fast ops
+  ),
+  onQuantityChangedAsync: (qty) async { ... },
+)
+```
+
+The `showDelay` parameter delays showing the spinner. Combined with a fast API, you can avoid showing the spinner entirely for quick operations while still showing it for slow ones.
+
+### `autoCollapseDelay` Changes Initial Expand State
+
+Setting `autoCollapseDelay` has a surprising side effect: the stepper starts **collapsed** even when `quantity > 0`, unless you also explicitly set `initiallyExpanded: true`.
+
+```dart
+// SURPRISE — stepper starts collapsed even though quantity is 5
+AsyncCartStepper(
+  quantity: 5,
+  collapseConfig: CartStepperCollapseConfig(
+    autoCollapseDelay: Duration(seconds: 3),
+  ),
+  onQuantityChanged: (qty) {},
+)
+
+// FIX — explicitly start expanded
+AsyncCartStepper(
+  quantity: 5,
+  collapseConfig: CartStepperCollapseConfig(
+    autoCollapseDelay: Duration(seconds: 3),
+    initiallyExpanded: true, // now it starts expanded, then auto-collapses
+  ),
+  onQuantityChanged: (qty) {},
+)
+```
+
+### Async Operations Are Not Cancelled Server-Side
+
+When a new operation supersedes an old one (or the widget is disposed), the old API call **keeps running on the server**. Only the UI update from the stale result is suppressed. If your API calls have side effects (charging a card, sending emails), ensure your server handles duplicate/overlapping requests gracefully (idempotency).
+
+### Controller `reset()` and `collapse()` Don't Remove Items
+
+Both `controller.reset()` and `controller.collapse()` set quantity to `minQuantity` (default 1), **not** 0. There is no controller method to "remove from cart" (set quantity below `minQuantity`). Use `onRemove` / `onRemoveAsync` callbacks for item removal.
+
+### Controller `setQuantity()` Skips Validation
+
+Calling `controller.setQuantity(value)` bypasses the `validator` callback. Only `increment()`, `decrement()`, `incrementAsync()`, and `decrementAsync()` call the validator. If you need to enforce validation on direct quantity changes, validate before calling `setQuantity()`.
+
+```dart
+// Validator is NOT called here
+controller.setQuantity(50);
+
+// Validator IS called here
+controller.increment(); // calls validator(current, current + step)
+```
+
+### Controller `setQuantity()` Silently Cancels In-Flight Async
+
+Calling `controller.setQuantity()` while an async operation is in progress silently increments the internal operation ID and clears the loading state. The running API call completes on the server but its result is ignored, and `onOperationCancelled` is **not** called.
+
+### Priority Order: Controller > Stream > Widget Quantity
+
+When multiple quantity sources are provided, the priority is:
+
+1. `controller.quantity` (highest)
+2. `quantityStream` latest value
+3. `widget.quantity` (lowest)
+
+If you provide both a controller and a `quantityStream`, the stream is **completely ignored** with no warning.
+
+### `ThemedCartStepper` Drops Config in Sync Mode
+
+When `ThemedCartStepper` is used without any async callbacks, it falls back to the sync `CartStepper` which does **not** support `longPressConfig`, `collapseConfig`, `iconConfig`, `manualInputConfig`, `quantityFormatter`, or `deleteViaQuantityChange`. These theme properties are silently dropped. To use these features, provide at least one async callback (even if you don't need async behavior).
+
+### `CartStepperGroup` Ignores Theme by Default
+
+Unlike `ThemedCartStepper`, `CartStepperGroup` does **not** pick up `CartStepperTheme` from context by default. You must explicitly opt in:
+
+```dart
+// Theme is IGNORED
+CartStepperGroup(items: items, onQuantityChanged: (i, qty) {})
+
+// Theme is applied
+CartStepperGroup(items: items, themed: true, onQuantityChanged: (i, qty) {})
+```
+
+### `CartStepperGroup` Uses `compact` Size by Default
+
+`CartStepperGroup` defaults to `CartStepperSize.compact`, while standalone steppers default to `CartStepperSize.normal`. This can cause visual inconsistency if you use both without explicit sizing.
+
+### `CartProductTile` Is Sync-Only
+
+`CartProductTile` internally uses `CartStepper` (sync), not `AsyncCartStepper`. There is no way to use async callbacks, loading indicators, or advanced features through `CartProductTile`. Build a custom tile layout if you need async support.
+
+### Manual Input Allows Decimals for `int` Steppers
+
+The manual input field allows decimal points (e.g., "5.5") even when the stepper type is `int`. The value is parsed and silently **truncated** (not rounded). Consider providing a custom `manualInputConfig.builder` if you need stricter input validation.
+
+### Manual Input Submits on Focus Loss
+
+When manual input is active and the field loses focus (tapping elsewhere, keyboard dismiss), the current value is **automatically submitted** -- not cancelled. If you want cancel-on-blur behavior, use a custom `manualInputConfig.builder`.
+
+### Undo State Shows `minQuantity`, Not Zero
+
+During the undo-after-delete countdown, the displayed quantity shows `minQuantity` (e.g., 1), not 0. This is because the widget doesn't have a concept of "zero quantity display" during active operation. Consider providing a custom `undoConfig.builder` if you want different undo visuals.
+
+### `toCartStepperController()` JSON Extension Has Wrong Defaults
+
+The `Map<String, dynamic>.toCartStepperController()` extension defaults `minQuantity` to `0`, which violates the `minQuantity > 0` assertion and will crash in debug mode. Always provide explicit values when using JSON deserialization:
+
+```dart
+// BAD — crashes if 'minQuantity' key is missing
+final controller = jsonMap.toCartStepperController();
+
+// GOOD — provide the values explicitly
+final controller = CartStepperController<int>(
+  initialQuantity: jsonMap['quantity'] as int? ?? 1,
+  minQuantity: jsonMap['minQuantity'] as int? ?? 1,
+  maxQuantity: jsonMap['maxQuantity'] as int? ?? 99,
+);
+```
+
+### Large `step` Values Can Disable Increment
+
+If `step` is larger than `maxQuantity - currentQuantity`, the increment button appears **disabled** even though the clamped result would be valid. For example, with `step: 5`, `currentQuantity: 1`, `maxQuantity: 3`, the button is disabled even though incrementing to 3 would be a valid clamped result.
+
+```dart
+// Be careful with large step values relative to your range
+CartStepper(
+  quantity: 1,
+  step: 5,
+  maxQuantity: 3, // increment button will be disabled!
+  onQuantityChanged: (qty) {},
+)
+```
+
+### Non-Blocking UI: Keeping the Stepper Responsive
+
+By default, when an async operation is in flight, the stepper **blocks all interaction** -- buttons are disabled and a loading spinner replaces the quantity. This is the safest behavior, but it can feel sluggish. Here's how each mechanism blocks (or doesn't block) the UI, and how to keep things feeling instant.
+
+#### What Blocks What
+
+| State | +/- Buttons | Add Button | Manual Input | Quantity Display |
+|---|---|---|---|---|
+| `_isLoading` (no optimistic) | **Disabled** | **Disabled** | **Disabled** | Shows spinner |
+| `_isLoading` + `optimisticUpdate` | Enabled | Enabled | **Disabled** | Shows pending qty |
+| `_isLoading` + `disableButtonsDuringLoading: false` | Enabled | **Disabled** | **Disabled** | Shows spinner |
+| Debounce waiting (before API fires) | Enabled | Enabled | Enabled | Shows debounced qty |
+| `enabled: false` | **Disabled** | **Disabled** | **Disabled** | Normal display |
+| External `isLoading: true` | **Disabled** | **Disabled** | **Disabled** | Shows spinner |
+
+> **Key insight:** Manual input is **always** blocked during loading, regardless of `optimisticUpdate`. There is no override for this.
+
+#### Strategy 1: Optimistic Updates (Instant Feedback, Spinner in Background)
+
+The quantity updates instantly. Buttons stay enabled. The spinner does **not** appear -- instead, the new quantity is shown immediately. If the API fails, it reverts.
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    optimisticUpdate: true,
+    revertOnError: true,
+  ),
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
+**UI behavior:** User taps + -> display shows new quantity instantly -> API runs in background -> if error, display reverts. No spinner, no disabled state. The user can keep tapping freely.
+
+#### Strategy 2: Debounce (Accumulate Taps, One API Call)
+
+The UI updates locally on every tap. No API call fires during tapping. One call fires after the user pauses. Loading spinner only appears during the actual API call.
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
+**UI behavior:** User taps +++ -> display shows 1, 2, 3 locally -> 500ms idle -> loading spinner appears briefly -> API call completes. The stepper is fully interactive during the debounce wait, including long press.
+
+#### Strategy 3: Debounce + Optimistic (Maximum Responsiveness)
+
+Combines both: instant local updates, batched API call, no spinner during accumulation, and buttons stay enabled even during the API call.
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  asyncBehavior: CartStepperAsyncBehavior(
+    optimisticUpdate: true,
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
+**UI behavior:** Fully non-blocking. User can tap freely at all times. One API call fires after pausing. On error, reverts to the value before the accumulation started.
+
+#### Strategy 4: Keep Buttons Enabled During Loading (Without Optimistic)
+
+If you don't want optimistic updates but still want buttons enabled during loading (so the user can queue the next change), disable the button-blocking:
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  loadingConfig: CartStepperLoadingConfig(
+    disableButtonsDuringLoading: false, // buttons stay enabled
+  ),
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
+**UI behavior:** Spinner appears in the quantity area, but +/- buttons remain tappable. The new operation supersedes the old one (the old API call still runs server-side but its result is ignored).
+
+> **Note:** The Add button (collapsed state) is **always** disabled during loading regardless of `disableButtonsDuringLoading`. Only the expanded +/- buttons respect this setting.
+
+#### Strategy 5: Hide the Spinner for Fast Operations
+
+Use `showDelay` to only show the spinner if the operation takes longer than expected:
+
+```dart
+AsyncCartStepper(
+  quantity: quantity,
+  loadingConfig: CartStepperLoadingConfig(
+    showDelay: Duration(milliseconds: 300), // wait 300ms before showing spinner
+    minimumDuration: Duration(milliseconds: 150), // if shown, show for at least 150ms
+  ),
+  onQuantityChangedAsync: (qty) async {
+    await api.updateCart(itemId, qty);
+    setState(() => quantity = qty);
+  },
+)
+```
+
+**UI behavior:** If the API responds within 300ms, the user never sees a spinner -- it feels instant. If it takes longer, the spinner appears and stays for at least 150ms to avoid flicker.
+
+#### Avoid: External `isLoading` with Debounce
+
+Setting `isLoading` externally during debounce mode blocks all taps and defeats the purpose of debouncing:
+
+```dart
+// BAD — blocks interaction during the debounce window
+AsyncCartStepper(
+  quantity: quantity,
+  isLoading: _myLoadingFlag, // overrides internal state, blocks taps
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async { ... },
+)
+
+// GOOD — let the widget manage loading internally
+AsyncCartStepper(
+  quantity: quantity,
+  // isLoading: don't set it
+  asyncBehavior: CartStepperAsyncBehavior(
+    debounceDelay: Duration(milliseconds: 500),
+  ),
+  onQuantityChangedAsync: (qty) async { ... },
+)
+```
+
+#### Quick Reference: Which Strategy to Use
+
+| Scenario | Strategy | Config |
+|---|---|---|
+| Fast API (< 200ms) | Show delay | `loadingConfig: CartStepperLoadingConfig(showDelay: Duration(milliseconds: 200))` |
+| Shopping cart (frequent updates) | Debounce | `asyncBehavior: CartStepperAsyncBehavior(debounceDelay: Duration(milliseconds: 500))` |
+| Instant feel, safe revert | Optimistic | `asyncBehavior: CartStepperAsyncBehavior.optimistic` |
+| Maximum responsiveness | Debounce + Optimistic | `asyncBehavior: CartStepperAsyncBehavior(optimisticUpdate: true, debounceDelay: Duration(milliseconds: 500))` |
+| Slow API, allow queuing | Keep buttons enabled | `loadingConfig: CartStepperLoadingConfig(disableButtonsDuringLoading: false)` |
+| Server-authoritative, strict | Default | No config needed (default behavior) |
+
+### Assertions Only Run in Debug Mode
+
+All parameter validation (`minQuantity > 0`, `maxQuantity > minQuantity`, `step > 0`, controller exclusivity) is done via Dart `assert()`, which is stripped in release builds. Invalid parameters won't crash in production but may cause unexpected behavior. Always test thoroughly in debug mode first.
 
 ## Migration Guide
 
