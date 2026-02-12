@@ -1,6 +1,6 @@
 name: advance_cart_stepper
 description: "A customizable expandable cart quantity stepper widget for Flutter with async support, loading indicators, and theming."
-version: 2.0.1
+version: 2.0.2
 homepage: https://github.com/khaledsmq/advance_cart_stepper
 repository: https://github.com/khaledsmq/advance_cart_stepper
 issue_tracker: https://github.com/khaledsmq/advance_cart_stepper/issues

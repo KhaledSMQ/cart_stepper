@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.0.2
+
+### Bug Fixes
+
+- Fixed `setState() called during build` exception in `StepperButton` that occurred when `GestureDetector` disposed its gesture recognizers during a rebuild, triggering `onLongPressCancel` / `onTapCancel` synchronously inside the build phase
+
 ## 2.0.1
 
 ### Documentation

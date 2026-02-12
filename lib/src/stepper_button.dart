@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 /// A circular button widget for increment/decrement actions.
 ///
@@ -74,6 +75,25 @@ class _StepperButtonState extends State<StepperButton> {
   bool _isLongPressing = false;
   bool _isHighlighted = false;
 
+  /// Calls [setState] safely, deferring the call to after the current frame
+  /// if the framework is currently in the build phase. This prevents the
+  /// "setState() called during build" error that can occur when
+  /// [GestureDetector] syncs/disposes recognizers during a rebuild,
+  /// which triggers cancel callbacks synchronously.
+  void _safeSetState(VoidCallback fn) {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      // We're inside the build/layout/paint phase — defer the setState.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(fn);
+        }
+      });
+    } else {
+      setState(fn);
+    }
+  }
+
   @override
   void dispose() {
     // Clean up long press state if still active to prevent parent timers from running
@@ -100,7 +120,7 @@ class _StepperButtonState extends State<StepperButton> {
   }
 
   void _handleTapCancel() {
-    setState(() => _isHighlighted = false);
+    _safeSetState(() => _isHighlighted = false);
     if (_isLongPressing) {
       _isLongPressing = false;
       widget.onLongPressEnd();
@@ -122,7 +142,7 @@ class _StepperButtonState extends State<StepperButton> {
   }
 
   void _handleLongPressCancel() {
-    setState(() => _isHighlighted = false);
+    _safeSetState(() => _isHighlighted = false);
     if (_isLongPressing) {
       _isLongPressing = false;
       widget.onLongPressEnd();
