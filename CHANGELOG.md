@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.0.3
+
+### Bug Fixes
+
+- Fixed assertion error when `maxQuantity` equals `minQuantity` (e.g., products limited to exactly 1 unit)
+  - Changed assertion from `maxQuantity > minQuantity` to `maxQuantity >= minQuantity` in both `CartStepperController` and `_CartStepperCore`
+  - This allows the stepper to properly handle edge cases where `maxQuantity == minQuantity`, automatically disabling the increment button when at max
+
 ## 2.0.2
 
 ### Bug Fixes
