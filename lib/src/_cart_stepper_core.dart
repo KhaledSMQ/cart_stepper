@@ -140,7 +140,7 @@ class _CartStepperCore<T extends num> extends StatefulWidget {
     this.controller,
     this.quantityStream,
   })  : assert(minQuantity > 0, 'minQuantity must be > 0'),
-        assert(maxQuantity > minQuantity, 'maxQuantity must be > minQuantity'),
+        assert(maxQuantity >= minQuantity, 'maxQuantity must be >= minQuantity'),
         assert(step > 0, 'step must be > 0'),
         assert(quantity >= 0, 'quantity cannot be negative');
 

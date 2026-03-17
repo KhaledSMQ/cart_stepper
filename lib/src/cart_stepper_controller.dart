@@ -109,7 +109,7 @@ class CartStepperController<T extends num> extends ChangeNotifier
     this.onMaxReached,
     this.onMinReached,
   })  : assert(minQuantity > 0, 'minQuantity must be > 0'),
-        assert(maxQuantity > minQuantity, 'maxQuantity must be > minQuantity'),
+        assert(maxQuantity >= minQuantity, 'maxQuantity must be >= minQuantity'),
         assert(step > 0, 'step must be > 0'),
         _quantity = initialQuantity,
         _isExpanded = initialQuantity > 0 {
